@@ -1,0 +1,500 @@
+{
+    "settings": {
+        "auto_copy_result": true,
+        "auto_recognize_after_screenshot": true,
+        "auto_save": false,
+        "default_prompt": "请识别图片中的所有文字内容，保持原文格式",
+        "max_history": 50,
+        "save_folder": "./ocr_results",
+        "shortcut_paste": "Ctrl+V",
+        "shortcut_recognize": "Alt+S",
+        "shortcut_screenshot": "Alt+A"
+    },
+    "providers": {
+        "aliyun": {
+            "api_host": "https://dashscope.aliyuncs.com/compatible-mode",
+            "api_key": "",
+            "description": "通义千问系列模型统一配置，在此处填写一次 API Key 即可",
+            "name": "阿里云百炼"
+        },
+        "glm": {
+            "api_host": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+            "api_key": "",
+            "description": "智谱清言系列模型统一配置，在此处填写一次 API Key 即可",
+            "name": "智谱清言"
+        },
+        "paddle": {
+            "api_host": "https://s5oa2dp3l6z94784.aistudio-app.com/layout-parsing",
+            "api_key": "",
+            "description": "百度 PaddleOCR-VL 配置，在此处填写一次 API Key 即可",
+            "name": "百度飞桨"
+        }
+    },
+    "models": [
+        {
+            "displayName": "Tesseract",
+            "enabled": true,
+            "engine": "tesseract",
+            "id": "tesseract_local",
+            "params": {
+                "deploy_type": "local",
+                "lang": "chi_sim+eng",
+                "path": "C:/Program Files/Tesseract-OCR/tesseract.exe"
+            },
+            "type": "local"
+        },
+        {
+            "displayName": "Qwen3-VL-Plus(均衡)",
+            "enabled": true,
+            "engine": "qwen",
+            "id": "qwen3_vl_plus",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen3-vl-plus",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen3-VL-Flash(便宜)",
+            "enabled": true,
+            "engine": "qwen",
+            "id": "qwen3_vl_flash",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen3-vl-flash",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen-VL-Max(精准)",
+            "enabled": false,
+            "engine": "qwen",
+            "id": "qwen_vl_max",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen-vl-max",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen-VL-Plus(经典)",
+            "enabled": false,
+            "engine": "qwen",
+            "id": "qwen_vl_plus",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen-vl-plus",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen-VL-OCR(专用)",
+            "enabled": false,
+            "engine": "qwen",
+            "id": "qwen_vl_ocr",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen-vl-ocr",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen3-VL-235B-Thinking(思考)",
+            "enabled": false,
+            "engine": "qwen",
+            "id": "qwen3_vl_235b_thinking",
+            "params": {
+                "deploy_type": "online",
+                "enable_thinking": "true",
+                "model_name": "qwen3-vl-235b-a22b-thinking",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen3-VL-235B(开源旗舰)",
+            "enabled": true,
+            "engine": "qwen",
+            "id": "qwen3_vl_235b",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen3-vl-235b-a22b-instruct",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen3-VL-32B-Thinking(思考)",
+            "enabled": false,
+            "engine": "qwen",
+            "id": "qwen3_vl_32b_thinking",
+            "params": {
+                "deploy_type": "online",
+                "enable_thinking": "true",
+                "model_name": "qwen3-vl-32b-thinking",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen3-VL-32B",
+            "enabled": false,
+            "engine": "qwen",
+            "id": "qwen3_vl_32b_instruct",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen3-vl-32b-instruct",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen3-VL-8B-Thinking(思考)",
+            "enabled": false,
+            "engine": "qwen",
+            "id": "qwen3_vl_8b_thinking",
+            "params": {
+                "deploy_type": "online",
+                "enable_thinking": "true",
+                "model_name": "qwen3-vl-8b-thinking",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen3-VL-8B(性价比高)",
+            "enabled": true,
+            "engine": "qwen",
+            "id": "qwen3_vl_8b_instruct",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen3-vl-8b-instruct",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen2.5-VL-72B(2.5旗舰)",
+            "enabled": false,
+            "engine": "qwen",
+            "id": "qwen25_vl_72b",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen2.5-vl-72b-instruct",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen2-VL-2B(免费)",
+            "enabled": true,
+            "engine": "qwen",
+            "id": "qwen2_vl_2b",
+            "params": {
+                "deploy_type": "online",
+                "model_name": "qwen2-vl-2b-instruct",
+                "temperature": "0.1"
+            },
+            "provider": "aliyun",
+            "type": "online"
+        },
+        {
+            "displayName": "Qwen3-VL-8B-Instruct",
+            "enabled": true,
+            "engine": "qwen",
+            "id": "qwen_vl_local",
+            "params": {
+                "api_key": "",
+                "deploy_type": "local",
+                "api_host": "http://192.168.4.22:9008",
+                "model_name": "Qwen3-VL-8B-Instruct",
+                "temperature": "0.1"
+            },
+            "provider": "custom",
+            "type": "local"
+        },
+        {
+            "id": "glm_4_5v",
+            "displayName": "GLM-4.5V(均衡)",
+            "type": "online",
+            "engine": "glm",
+            "provider": "glm",
+            "enabled": false,
+            "params": {
+                "model_name": "glm-4.5v",
+                "temperature": "0.1",
+                "enable_thinking": "false"
+            }
+        },
+        {
+            "id": "glm_4_6v",
+            "displayName": "GLM-4.6V(精准)",
+            "type": "online",
+            "engine": "glm",
+            "provider": "glm",
+            "enabled": true,
+            "params": {
+                "model_name": "glm-4.6v",
+                "temperature": "0.1",
+                "enable_thinking": "false"
+            }
+        },
+        {
+            "id": "glm_4_6v_flash",
+            "displayName": "GLM-4.6V-Flash(免费)",
+            "type": "online",
+            "engine": "glm",
+            "provider": "glm",
+            "enabled": true,
+            "params": {
+                "model_name": "glm-4.6v-flash",
+                "temperature": "0.1",
+                "enable_thinking": "false"
+            }
+        },
+        {
+            "id": "paddle_ocr_vl",
+            "displayName": "PaddleOCR-VL",
+            "type": "online",
+            "engine": "paddle",
+            "provider": "paddle",
+            "enabled": true,
+            "params": {}
+        }
+    ],
+    "prompt_templates": [
+        {
+            "category": "通用",
+            "content": "你是谁？",
+            "name": "自定义",
+            "type": "识别"
+        },
+        {
+            "category": "通用",
+            "content": "请识别图片中的所有文字内容，不输出任何解释说明，仅输出识别文本。",
+            "name": "通用识别",
+            "type": "识别"
+        },
+        {
+            "category": "通用",
+            "content": "请严格识别图片中的所有文字，并完整保留标点、换行、空格、列表、缩进等格式信息。",
+            "name": "精确识别",
+            "type": "识别"
+        },
+        {
+            "category": "表格",
+            "content": "请识别图片中的表格内容，并以 Markdown 表格格式输出：1. 保留所有行列；2. 单元格内容准确；3. 使用标准 Markdown 表格语法。",
+            "name": "表格识别",
+            "type": "识别"
+        },
+        {
+            "category": "表格",
+            "content": "请识别图片中的表格内容，并输出为可直接粘贴到 Excel 的制表符分隔格式（TSV）。",
+            "name": "表格转Excel",
+            "type": "识别"
+        },
+        {
+            "category": "表格",
+            "content": "请识别图片中的复杂表格（可能包含合并单元格），尽可能保持结构，并以 Markdown 表格形式输出。",
+            "name": "复杂表格",
+            "type": "识别"
+        },
+        {
+            "category": "公式",
+            "content": "请识别图片中的数学公式，用 LaTeX 格式输出。要求：\n1. 使用标准 LaTeX 语法\n2. 行内公式用 $...$ 包裹\n3. 独立公式用 $$...$$ 包裹\n4. 保持公式的完整性和准确性",
+            "name": "数学公式识别",
+            "type": "识别"
+        },
+        {
+            "category": "公式",
+            "content": "请识别图片中的化学式与化学方程式，使用标准化学符号准确输出。",
+            "name": "化学公式识别",
+            "type": "识别"
+        },
+        {
+            "category": "手写",
+            "content": "请识别图片中的手写文字内容，规定： ** 1. 图片内容是什么就识别什么，不能自我发散。**  请返回提取结果。",
+            "name": "手写文字识别",
+            "type": "识别"
+        },
+        {
+            "category": "手写",
+            "content": "请识别图片中的手写笔记，并保持原有的段落结构、标题、列表和逻辑层级。",
+            "name": "手写笔记",
+            "type": "识别"
+        },
+        {
+            "category": "证件",
+            "content": "请识别身份证信息，按以下格式输出：\n姓名：\n性别：\n民族：\n出生日期：\n住址：\n身份证号码：",
+            "name": "身份证识别",
+            "type": "识别"
+        },
+        {
+            "category": "证件",
+            "content": "请识别护照信息，提取以下字段：\n护照类型：\n国家代码：\n护照号码：\n姓名：\n国籍：\n出生日期：\n性别：\n签发日期：\n有效期至：",
+            "name": "护照识别",
+            "type": "识别"
+        },
+        {
+            "category": "证件",
+            "content": "请识别驾驶证信息，提取姓名、证号、准驾车型、有效期等关键信息",
+            "name": "驾驶证识别",
+            "type": "识别"
+        },
+        {
+            "category": "证件",
+            "content": "请识别营业执照信息，提取企业名称、统一社会信用代码、法定代表人、注册资本、成立日期等信息",
+            "name": "营业执照识别",
+            "type": "识别"
+        },
+        {
+            "category": "票据",
+            "content": "请识别增值税发票信息，按以下格式输出：\n发票代码：\n发票号码：\n开票日期：\n购买方名称：\n购买方税号：\n销售方名称：\n销售方税号：\n金额合计：\n税额合计：\n价税合计：",
+            "name": "增值税发票",
+            "type": "识别"
+        },
+        {
+            "category": "票据",
+            "content": "请识别发票信息，提取发票号码、开票日期、金额、税额等关键信息",
+            "name": "通用发票",
+            "type": "识别"
+        },
+        {
+            "category": "票据",
+            "content": "请识别火车票信息，提取车次、日期、出发站、到达站、座位号、票价等信息",
+            "name": "火车票识别",
+            "type": "识别"
+        },
+        {
+            "category": "代码",
+            "content": "请识别图片中的代码，要求：\n1. 保持原始缩进和格式\n2. 保留所有注释\n3. 如果能识别出编程语言，请标注\n4. 用代码块格式输出",
+            "name": "代码识别",
+            "type": "识别"
+        },
+        {
+            "category": "截图",
+            "content": "这是一张屏幕截图，请提取其中的所有可见文字内容，按从上到下、从左到右的顺序输出",
+            "name": "截图文字提取",
+            "type": "识别"
+        },
+        {
+            "category": "截图",
+            "content": "这是一张网页截图，请提取网页中的文字内容，保持标题、段落等结构",
+            "name": "网页截图",
+            "type": "识别"
+        },
+        {
+            "category": "截图",
+            "content": "请识别幻灯片PPT截图内容，提取标题、要点和正文，并保持层级结构。",
+            "name": "PPT截图",
+            "type": "识别"
+        },
+        {
+            "category": "文档",
+            "content": "这是书籍扫描图片，请识别页面上的所有文字，保持段落和章节结构。",
+            "name": "书籍扫描",
+            "type": "识别"
+        },
+        {
+            "category": "文档",
+            "content": "请识别合同文档的文字内容，保持条款编号和层级结构",
+            "name": "合同识别",
+            "type": "识别"
+        },
+        {
+            "category": "生活",
+            "content": "请识别菜单上的菜品名称和价格，按分类整理输出",
+            "name": "菜单识别",
+            "type": "识别"
+        },
+        {
+            "category": "解答",
+            "name": "解答问题",
+            "type": "解答",
+            "content": "请根据图片内容分析其中的问题，并给出详细的推理步骤和最终答案。"
+        },
+        {
+            "category": "解答",
+            "name": "题目讲解",
+            "type": "解答",
+            "content": "请阅读图片中的题目，并以清晰步骤给出解题思路、公式推导过程和最终答案。"
+        },
+        {
+            "category": "解答",
+            "name": "错题分析",
+            "type": "解答",
+            "content": "请分析图片中的题目与解答，指出错误原因并给出正确的解决方案。"
+        },
+        {
+            "category": "翻译",
+            "name": "翻译为中文",
+            "type": "翻译",
+            "content": "请将图片中的文字翻译为中文，保持语气自然，必要时优化表达。"
+        },
+        {
+            "category": "翻译",
+            "name": "翻译为英文",
+            "type": "翻译",
+            "content": "请将图片中的文字翻译为英文，保持语气自然流畅。"
+        },
+        {
+            "category": "翻译",
+            "name": "保持格式对照翻译",
+            "type": "翻译",
+            "content": "请将识别到的内容翻译为指定语言(中文)，并严格保持原有格式（段落、列表、标题等）。同时请进行逐句对照翻译：每一句原文后紧跟一句对应的译文，使用如下格式：\n\n原文：xxxx\n译文：yyyy\n\n若为列表或段落，依然按顺序逐条对照翻译。"
+        },
+        {
+            "category": "翻译",
+            "name": "专业翻译",
+            "type": "翻译",
+            "content": "请将图片中的文字进行专业翻译（如学术、技术、法律、医疗），确保术语准确。"
+        },
+        {
+            "category": "整理",
+            "name": "结构化输出JSON",
+            "type": "整理",
+            "content": "请识别图片内容并以 JSON 格式输出，包含所有文字。"
+        },
+        {
+            "category": "整理",
+            "name": "知识点提取",
+            "type": "整理",
+            "content": "请识别图片内容，并提取其中的关键概念、要点、结论，以结构化列表形式输出。"
+        },
+        {
+            "category": "整理",
+            "name": "摘要整理",
+            "type": "整理",
+            "content": "请总结图片中的主要信息，用 3-5 个关键要点输出。"
+        },
+        {
+            "category": "整理",
+            "name": "生成Markdown笔记",
+            "type": "整理",
+            "content": "请将图片内容整理成结构清晰、美观、层级分明的 Markdown 笔记。"
+        },
+        {
+            "category": "整理",
+            "name": "表单识别",
+            "type": "整理",
+            "content": "请识别表单中的字段名称和填写内容，并以 JSON 输出：{\"字段名\": \"字段值\"}。"
+        }
+    ]
+}

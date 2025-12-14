@@ -1,0 +1,23 @@
+<RCC>
+    <qresource prefix="/">
+        <file>res/favicon.ico</file>
+        <file>res/sidebar.png</file>
+        <file>res/01.png</file>
+        <file>res/02.png</file>
+        <file>res/03.png</file>
+        <file>res/04.png</file>
+        <file>res/05.png</file>
+        <file>res/06.png</file>
+        <file>res/07.png</file>
+        <file>res/08.png</file>
+        <file>res/09.png</file>
+        <file>res/10.png</file>
+        <file>res/11.png</file>
+        <file>res/12.png</file>
+        <file>res/13.png</file>
+        <file>res/14.png</file>
+        <file>res/15.png</file>
+        <file>res/16.png</file>
+        <file>res/17.png</file>
+    </qresource>
+</RCC>

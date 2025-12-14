@@ -1,0 +1,62 @@
+my_config.md
+
+# 构建目录
+build/
+build-*/
+cmake-build-*/
+release/
+release-*/
+exe/
+exe-*/
+
+# Qt 生成
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.autosave
+
+# C++ 编译
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.map
+
+# IDE 配置
+.vscode/
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# 临时文件
+*.tmp
+*.temp
+*.log
+*~
+.DS_Store
+Thumbs.db
+
+# 识别结果和缓存
+ocr_images/
+ocr_results/
+*.cache
+
+# 私有配置
+config.local.json
+secrets.json

@@ -1,0 +1,147 @@
+cmake_minimum_required(VERSION 3.5)
+project(XS-VLM-OCR LANGUAGES CXX)
+
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_PREFIX_PATH "c:/Qt/Qt5.14.2/5.14.2/mingw73_64")
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_CURRENT_SOURCE_DIR}/app.rc")
+
+# Qt 组件
+find_package(Qt5 COMPONENTS 
+    Widgets 
+    Network 
+    Concurrent
+    REQUIRED
+)
+
+# 指定 MSVC UTF-8 编码
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
+# 收集源文件
+set(CORE_SOURCES
+    src/core/OCRPipeline.cpp
+)
+
+set(CORE_HEADERS
+    src/core/OCRResult.h
+    src/core/ModelAdapter.h
+    src/core/OCRPipeline.h
+)
+
+set(ADAPTER_SOURCES
+    src/adapters/TesseractAdapter.cpp
+    src/adapters/QwenAdapter.cpp
+    src/adapters/CustomAdapter.cpp
+    src/adapters/GLMAdapter.cpp
+    src/adapters/PaddleAdapter.cpp
+)
+
+set(ADAPTER_HEADERS
+    src/adapters/TesseractAdapter.h
+    src/adapters/QwenAdapter.h
+    src/adapters/CustomAdapter.h
+    src/adapters/GLMAdapter.h
+    src/adapters/PaddleAdapter.h
+)
+
+set(MANAGER_SOURCES
+    src/managers/ModelManager.cpp
+    src/managers/ClipboardManager.cpp
+)
+
+set(MANAGER_HEADERS
+    src/managers/ModelManager.h
+    src/managers/ClipboardManager.h
+)
+
+set(UTILS_SOURCES
+    src/utils/ConfigManager.cpp
+)
+
+set(UTILS_HEADERS
+    src/utils/ConfigManager.h
+)
+
+set(UI_SOURCES
+    src/ui/MainWindow.cpp
+    src/ui/SettingsDialog.cpp
+)
+
+set(UI_HEADERS
+    src/ui/MainWindow.h
+    src/ui/SettingsDialog.h
+)
+
+set(UI_RESOURCES
+    src/ui/resources.qrc
+)
+
+set(MAIN_SOURCE
+    src/main.cpp
+)
+
+# 所有源文件
+set(ALL_SOURCES
+    ${MAIN_SOURCE}
+    ${CORE_SOURCES}
+    ${ADAPTER_SOURCES}
+    ${MANAGER_SOURCES}
+    ${UTILS_SOURCES}
+    ${UI_SOURCES}
+    ${UI_RESOURCES}
+)
+
+set(ALL_HEADERS
+    ${CORE_HEADERS}
+    ${ADAPTER_HEADERS}
+    ${MANAGER_HEADERS}
+    ${UTILS_HEADERS}
+    ${UI_HEADERS}
+)
+
+# 创建可执行文件
+add_executable(${PROJECT_NAME}
+    WIN32  # 注释掉 WIN32 以显示控制台用于调试
+    ${ALL_SOURCES}
+    ${ALL_HEADERS}
+    ${APP_ICON_RESOURCE_WINDOWS}
+)
+
+# 链接 Qt 库
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    Qt5::Widgets
+    Qt5::Network
+    Qt5::Concurrent
+)
+
+# 复制配置模板文件到构建目录
+configure_file(
+    ${CMAKE_SOURCE_DIR}/models_config.json
+    ${CMAKE_BINARY_DIR}/models_config.json
+    COPYONLY
+)
+
+message(STATUS "配置模板文件将被复制到构建目录")
+
+# 包含目录
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+# Windows 特定设置
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE user32)
+endif()
+
+# 输出信息
+message(STATUS "======================================")
+message(STATUS "Project: ${PROJECT_NAME}")
+message(STATUS "Qt5 Dir: ${CMAKE_PREFIX_PATH}")
+message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "======================================")
