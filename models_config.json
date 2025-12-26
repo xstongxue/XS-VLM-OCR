@@ -28,6 +28,12 @@
             "api_key": "",
             "description": "百度 PaddleOCR-VL 配置，在此处填写一次 API Key 即可",
             "name": "百度飞桨"
+        },
+        "gen": {
+            "api_host": "https://api.siliconflow.cn",
+            "api_key": "",
+            "description": "通用厂商（OpenAI 兼容接口，例举一些可用厂商：硅基流动、通义千问等）",
+            "name": "通用厂商"
         }
     },
     "models": [
@@ -277,6 +283,20 @@
             "provider": "paddle",
             "enabled": true,
             "params": {}
+        },
+        {
+            "id": "gen_qwen3_vl_8b_instruct",
+            "displayName": "硅基流动 Qwen3-VL-8B-Instruct",
+            "type": "online",
+            "engine": "gen",
+            "provider": "gen",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "Qwen/Qwen3-VL-8B-Instruct",
+                "api_host": "https://api.siliconflow.cn",
+                "temperature": "0.1"
+            }
         }
     ],
     "prompt_templates": [
@@ -428,7 +448,7 @@
             "category": "解答",
             "name": "解答问题",
             "type": "解答",
-            "content": "请根据图片内容分析其中的问题，并给出详细的推理步骤和最终答案。"
+            "content": "请根据图片内容分析其中的问题。"
         },
         {
             "category": "解答",
@@ -488,7 +508,7 @@
             "category": "整理",
             "name": "生成Markdown笔记",
             "type": "整理",
-            "content": "请将图片内容整理成结构清晰、美观、层级分明的 Markdown 笔记。"
+            "content": "请将图片内容整理成结构清晰、美观、层级分明的 Markdown 笔记(开头不要添加```markdown标记)。"
         },
         {
             "category": "整理",

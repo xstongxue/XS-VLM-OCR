@@ -5,6 +5,7 @@
 #include "../adapters/CustomAdapter.h"
 #include "../adapters/GLMAdapter.h"
 #include "../adapters/PaddleAdapter.h"
+#include "../adapters/GeneralAdapter.h"
 #include "../utils/ConfigManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -38,6 +39,9 @@
 #include <QIcon>
 #include <QPixmap>
 #include <QTransform>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QTextBrowser>
 #include <functional>
 #include <QStandardItemModel>
 #include <QStandardItem>
@@ -556,7 +560,7 @@ void MainWindow::setupUI()
     m_mainSplitter->setSizes({300, 900}); // 设置初始大小，侧边栏宽度300，内容区宽度900
     m_mainSplitter->setChildrenCollapsible(false); // 设置子控件不可折叠
     m_mainSplitter->setOpaqueResize(true); // 设置分割线可拖拽
-    m_mainSplitter->setHandleWidth(1); // 设置分割线宽度
+    m_mainSplitter->setHandleWidth(6); // 设置分割线宽度
     if (QSplitterHandle* handle = m_mainSplitter->handle(1)) {
         handle->setCursor(Qt::SplitHCursor); // 设置分割线鼠标样式
         handle->setToolTip("拖拽调整侧边栏宽度"); // 设置分割线提示
@@ -716,7 +720,30 @@ void MainWindow::setupUI()
     );
     resultHeaderLayout->addWidget(resultHintLabel);
     resultHeaderLayout->addStretch();
-    
+
+    m_previewResultBtn = new QPushButton("预览");
+    m_previewResultBtn->setIcon(QIcon(":/res/18.png"));
+    m_previewResultBtn->setIconSize(QSize(18, 18));
+    m_previewResultBtn->setMinimumHeight(36);
+    m_previewResultBtn->setStyleSheet(
+        "QPushButton { "
+        "  padding: 6px 6px; "
+        "  font-size: 10pt; "
+        "  font-weight: normal; "
+        "  color: #666; "
+        "  background: transparent; "
+        "  border: none; "
+        "}"
+        "QPushButton:hover { "
+        "  color: #333; "
+        "  background: transparent;"
+        "}"
+        "QPushButton::icon { "
+        "  margin-right: 2px;"
+        "}"
+    );
+    resultHeaderLayout->addWidget(m_previewResultBtn);
+
     m_copyResultBtn = new QPushButton("复制结果");
     m_copyResultBtn->setIcon(QIcon(":/res/16.png"));
     m_copyResultBtn->setIconSize(QSize(18, 18));
@@ -738,6 +765,8 @@ void MainWindow::setupUI()
         "  margin-right: 2px;"
         "}"
     );
+    if (m_previewResultBtn)
+        m_previewResultBtn->setStyleSheet(m_copyResultBtn->styleSheet());
     resultHeaderLayout->addWidget(m_copyResultBtn);
     
     m_exportBtn = new QPushButton("导出文件");
@@ -924,6 +953,7 @@ void MainWindow::setupConnections()
     connect(m_modelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::onModelChanged);
     // 提示词模板选择将在加载时连接
+    connect(m_previewResultBtn, &QPushButton::clicked, this, &MainWindow::onPreviewResultClicked);
     connect(m_copyResultBtn, &QPushButton::clicked, [this]()
             {
         if (!m_resultText->toPlainText().isEmpty()) {
@@ -1039,17 +1069,6 @@ void MainWindow::initializeServices()
         qDebug() << "MainWindow: 找到" << configs.size() << "个模型配置";
         
         // 检查是否有可用的 API Key
-        bool hasValidApiKey = false;
-        for (const ModelConfig& config : configs) {
-            if (config.enabled && (config.engine == "qwen" || config.engine == "custom" || config.engine == "glm" || config.engine == "paddle")) {
-                QString apiKey = config.params.value("api_key", "");
-                if (!apiKey.isEmpty() && apiKey != "your_api_key_here" && apiKey != "") {
-                    hasValidApiKey = true;
-                    break;
-                }
-            }
-        }
-
         for (const ModelConfig &config : configs)
         {
             if (!config.enabled)
@@ -1072,6 +1091,10 @@ void MainWindow::initializeServices()
             else if (config.engine == "custom")
             {
                 adapter = new CustomAdapter(config, this);
+            }
+            else if (config.engine == "openai")
+            {
+                adapter = new GeneralAdapter(config, this);
             }
             else if (config.engine == "glm")
             {
@@ -1821,6 +1844,15 @@ void MainWindow::onRecognizeClicked()
                              "3. API 地址配置错误\n\n"
                              "请点击设置按钮，在「模型配置」标签页填写 API Key").arg(modelName);
         } 
+        else if (engine == "openai") 
+        {
+            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
+                             "可能的原因：\n"
+                             "1. API Key 未配置或无效\n"
+                             "2. 网络连接问题\n"
+                             "3. API 地址配置错误\n\n"
+                             "请点击设置按钮，在「模型配置」标签页填写 API Key").arg(modelName);
+        }
         else if (engine == "glm") 
         {
             errorMsg = QString("模型未初始化！\n模型：%1\n\n"
@@ -1906,6 +1938,62 @@ void MainWindow::onModelChanged(int index)
         QString typeText = adapter->config().type == "local" ? "离线" : "线上";
         showStatusMessage(QString("当前模型: %1 (%2)").arg(adapter->config().displayName, typeText));
     }
+}
+
+void MainWindow::onPreviewResultClicked()
+{
+    const QString currentText = m_resultText ? m_resultText->toPlainText() : QString();
+    QDialog dialog(this);
+    dialog.setWindowTitle("结果预览 (Markdown)");
+    dialog.resize(960, 600);
+    
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    QSplitter* splitter = new QSplitter(Qt::Horizontal, &dialog);
+    
+    QTextEdit* editor = new QTextEdit(splitter);
+    editor->setPlainText(currentText);
+    editor->setLineWrapMode(QTextEdit::NoWrap);
+    
+    QTextBrowser* preview = new QTextBrowser(splitter);
+    preview->setOpenExternalLinks(true);
+    preview->setMarkdown(currentText);
+    
+    splitter->addWidget(editor);
+    splitter->addWidget(preview);
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 1);
+    splitter->setSizes({480, 480});
+    
+    layout->addWidget(splitter, 1);
+    
+    QHBoxLayout* btnLayout = new QHBoxLayout();
+    btnLayout->addStretch();
+    
+    QPushButton* applyBtn = new QPushButton("应用到结果", &dialog);
+    QPushButton* copyBtn = new QPushButton("复制到剪贴板", &dialog);
+    QPushButton* closeBtn = new QPushButton("关闭", &dialog);
+    btnLayout->addWidget(applyBtn);
+    btnLayout->addWidget(copyBtn);
+    btnLayout->addWidget(closeBtn);
+    layout->addLayout(btnLayout);
+    
+    connect(editor, &QTextEdit::textChanged, [&]() {
+        preview->setMarkdown(editor->toPlainText());
+    });
+    
+    connect(applyBtn, &QPushButton::clicked, [&]() {
+        if (m_resultText)
+            m_resultText->setPlainText(editor->toPlainText());
+        dialog.accept();
+    });
+    connect(copyBtn, &QPushButton::clicked, [&]() {
+        QClipboard* cb = QApplication::clipboard();
+        cb->setText(editor->toPlainText());
+        showStatusMessage("已复制到剪贴板");
+    });
+    connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+    
+    dialog.exec();
 }
 
 void MainWindow::onExportResultClicked()
@@ -2181,6 +2269,8 @@ void MainWindow::onSettingsChanged()
             adapter = new QwenAdapter(config, this);
         } else if (config.engine == "custom") {
             adapter = new CustomAdapter(config, this);
+        } else if (config.engine == "openai") {
+            adapter = new GeneralAdapter(config, this);
         } else if (config.engine == "glm") {
             adapter = new GLMAdapter(config, this);
         } else if (config.engine == "paddle") {
@@ -3054,6 +3144,8 @@ void MainWindow::applyTheme(bool grayTheme)
               "}";
         m_copyResultBtn->setStyleSheet(resultBtnStyle);
         m_exportBtn->setStyleSheet(resultBtnStyle);
+        if (m_previewResultBtn)
+            m_previewResultBtn->setStyleSheet(resultBtnStyle);
     }
     
     // 其他按钮（深色风格）
@@ -3065,7 +3157,7 @@ void MainWindow::applyTheme(bool grayTheme)
         if (btn == m_themeToggleBtn)
             continue; // 切换按钮自身文字已处理
         if (btn == m_uploadBtn || btn == m_pasteBtn || btn == m_recognizeBtn || 
-            btn == m_copyResultBtn || btn == m_exportBtn)
+            btn == m_copyResultBtn || btn == m_exportBtn || btn == m_previewResultBtn)
             continue; // 主页面按钮已单独处理
         
         btn->setStyleSheet(

@@ -918,9 +918,9 @@ void SettingsDialog::updateModelTabs()
         }
     }
     
-    // 按 provider 创建选项卡（排除 local、custom、openai 这些不需要单独显示的）
-    // 优先顺序：阿里云百炼 -> 智谱清言 -> 百度飞桨 -> 其他
-    QStringList providerOrder = {"aliyun", "glm", "paddle"};  // 可以扩展其他提供商
+    // 按 provider 创建选项卡（排除 local、custom这些不需要单独显示的）
+    // 优先顺序：阿里云百炼 -> 智谱清言 -> 百度飞桨 -> 通用厂商 -> 其他
+    QStringList providerOrder = {"aliyun", "glm", "paddle", "gen"};  // 可以扩展其他提供商
     for (const QString& providerId : providerOrder) {
         if (usedProviders.contains(providerId) && providers.contains(providerId)) {
             QString providerName = providers[providerId].name;
@@ -948,7 +948,7 @@ void SettingsDialog::updateModelTabs()
         getOrCreateProviderList("other_online", "其他在线模型");
     }
     
-    // 处理 custom、openai 等非标准 provider
+    // 处理 custom、gen 等非标准 provider
     for (const ModelConfig& config : configs) {
         if (config.type == "online" && config.provider == "custom") {
             getOrCreateProviderList("custom", "自定义API");
@@ -1657,9 +1657,10 @@ void ModelEditDialog::setupUI()
     m_providerCombo->addItem("阿里云百炼 (通义千问)", "aliyun");
     m_providerCombo->addItem("智谱清言 (GLM)", "glm");
     m_providerCombo->addItem("百度飞桨 (PaddleOCR)", "paddle");
+    m_providerCombo->addItem("通用厂商 (OpenAI兼容接口)", "gen");
     formLayout->addRow("API 提供商:", m_providerCombo);
     
-    m_enabledCheck = new QCheckBox("启用此模型");
+    m_enabledCheck = new QCheckBox("启用此模型*:");
     m_enabledCheck->setChecked(true);
     formLayout->addRow("", m_enabledCheck);
     

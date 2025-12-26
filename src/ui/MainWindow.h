@@ -7,6 +7,7 @@
 #include <QPushButton>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QTextBrowser>
 #include <QSystemTrayIcon>
 #include <QMenuBar>
 #include <QMenu>
@@ -57,6 +58,7 @@ private slots:
     void onUploadImageClicked();
     void onPasteImageClicked();
     void onRecognizeClicked();
+    void onPreviewResultClicked();
     void onCloseImageClicked(); 
     void onClearHistoryClicked();
     void onModelChanged(int index);
@@ -144,6 +146,7 @@ private:
     QImage m_currentImage;
     // 结果显示
     QTextEdit* m_resultText;
+    QPushButton* m_previewResultBtn;
     QPushButton* m_copyResultBtn;
     QPushButton* m_exportBtn;
     // 历史页面组件
