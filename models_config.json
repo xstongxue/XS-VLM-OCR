@@ -29,14 +29,26 @@
             "description": "百度 PaddleOCR-VL 配置，在此处填写一次 API Key 即可",
             "name": "百度飞桨"
         },
+        "doubao": {
+            "api_host": "https://ark.cn-beijing.volces.com",
+            "api_key": "",
+            "description": "字节豆包系列模型统一配置，在此处填写一次 API Key 即可",
+            "name": "字节豆包"
+        },
         "gen": {
             "api_host": "https://api.siliconflow.cn",
             "api_key": "",
-            "description": "通用厂商（OpenAI 兼容接口，例举一些可用厂商：硅基流动、通义千问等）",
+            "description": "通用厂商（OpenAI 兼容接口，例举一些可用厂商：硅基流动、豆包、混元、通义千问等）",
             "name": "通用厂商"
+        },
+        "gemini": {
+            "api_host": "https://generativelanguage.googleapis.com",
+            "api_key": "",
+            "description": "Google Gemini API，填写一次 API Key 即可",
+            "name": "谷歌 Gemini"
         }
     },
-    "models": [
+    "models": [ 
         {
             "displayName": "Tesseract",
             "enabled": true,
@@ -222,21 +234,6 @@
             "type": "online"
         },
         {
-            "displayName": "Qwen3-VL-8B-Instruct",
-            "enabled": true,
-            "engine": "qwen",
-            "id": "qwen_vl_local",
-            "params": {
-                "api_key": "",
-                "deploy_type": "local",
-                "api_host": "http://192.168.4.22:9008",
-                "model_name": "Qwen3-VL-8B-Instruct",
-                "temperature": "0.1"
-            },
-            "provider": "custom",
-            "type": "local"
-        },
-        {
             "id": "glm_4_5v",
             "displayName": "GLM-4.5V(均衡)",
             "type": "online",
@@ -285,6 +282,188 @@
             "params": {}
         },
         {
+            "id": "doubao_seed_1_8_251215",
+            "displayName": "豆包 Seed-1-8-251215",
+            "type": "online",
+            "engine": "doubao",
+            "provider": "doubao",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "doubao-seed-1-8-251215",
+                "api_host": "https://ark.cn-beijing.volces.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "doubao_seed_1_6_lite_251015",
+            "displayName": "豆包 Seed-1-6-Lite-251015",
+            "type": "online",
+            "engine": "doubao",
+            "provider": "doubao",
+            "enabled": true,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "doubao-seed-1-6-lite-251015",
+                "api_host": "https://ark.cn-beijing.volces.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "doubao_seed_1_6_flash_250828",
+            "displayName": "字节豆包 Seed-1-6-Flash-250828",
+            "type": "online",
+            "engine": "doubao",
+            "provider": "doubao",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "doubao-seed-1-6-flash-250828",
+                "api_host": "https://ark.cn-beijing.volces.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gemini_3_pro_preview",
+            "displayName": "Gemini 3 Pro (预览)",
+            "type": "online",
+            "engine": "gemini",
+            "provider": "gemini",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "gemini-3-pro-preview",
+                "api_host": "https://generativelanguage.googleapis.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gemini_3_flash_preview",
+            "displayName": "Gemini 3 Flash (预览)",
+            "type": "online",
+            "engine": "gemini",
+            "provider": "gemini",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "gemini-3-flash-preview",
+                "api_host": "https://generativelanguage.googleapis.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gemini_3_pro_image_preview",
+            "displayName": "Gemini 3 Pro Image (预览)",
+            "type": "online",
+            "engine": "gemini",
+            "provider": "gemini",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "gemini-3-pro-image-preview",
+                "api_host": "https://generativelanguage.googleapis.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gemini_2_5_pro",
+            "displayName": "Gemini 2.5 Pro",
+            "type": "online",
+            "engine": "gemini",
+            "provider": "gemini",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "gemini-2.5-pro",
+                "api_host": "https://generativelanguage.googleapis.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gemini_2_5_flash",
+            "displayName": "Gemini 2.5 Flash",
+            "type": "online",
+            "engine": "gemini",
+            "provider": "gemini",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "gemini-2.5-flash",
+                "api_host": "https://generativelanguage.googleapis.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gemini_2_5_flash_preview_09_2025",
+            "displayName": "Gemini 2.5 Flash 预览版 (09-2025)",
+            "type": "online",
+            "engine": "gemini",
+            "provider": "gemini",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "gemini-2.5-flash-preview-09-2025",
+                "api_host": "https://generativelanguage.googleapis.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gemini_2_5_flash_lite",
+            "displayName": "Gemini 2.5 Flash-Lite",
+            "type": "online",
+            "engine": "gemini",
+            "provider": "gemini",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "gemini-2.5-flash-lite",
+                "api_host": "https://generativelanguage.googleapis.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gemini_2_5_flash_lite_preview_09_2025",
+            "displayName": "Gemini 2.5 Flash-Lite 预览版 (09-2025)",
+            "type": "online",
+            "engine": "gemini",
+            "provider": "gemini",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "gemini-2.5-flash-lite-preview-09-2025",
+                "api_host": "https://generativelanguage.googleapis.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gemini_flash",
+            "displayName": "Gemini2.5-Flash",
+            "type": "online",
+            "engine": "gemini",
+            "provider": "gemini",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "gemini-2.5-flash",
+                "api_host": "https://generativelanguage.googleapis.com",
+                "temperature": "0.1"
+            }
+        },
+        {
+            "id": "gen_hunyuan_vision_1_5_instruct",
+            "displayName": "腾讯混元 Vision-1.5-Instruct",
+            "type": "online",
+            "engine": "gen",
+            "provider": "gen",
+            "enabled": false,
+            "params": {
+                "deploy_type": "online",
+                "model_name": "hunyuan-vision-1.5-instruct",
+                "api_host": "https://api.siliconflow.cn",
+                "temperature": "0.1"
+            }
+        },
+        {
             "id": "gen_qwen3_vl_8b_instruct",
             "displayName": "硅基流动 Qwen3-VL-8B-Instruct",
             "type": "online",
@@ -297,6 +476,21 @@
                 "api_host": "https://api.siliconflow.cn",
                 "temperature": "0.1"
             }
+        },
+        {
+            "displayName": "Qwen3-VL-8B-Instruct",
+            "enabled": true,
+            "engine": "custom",
+            "id": "qwen_vl_local",
+            "params": {
+                "api_key": "",
+                "deploy_type": "local",
+                "api_host": "http://192.168.4.22:9008",
+                "model_name": "Qwen3-VL-8B-Instruct",
+                "temperature": "0.1"
+            },
+            "provider": "custom",
+            "type": "local"
         }
     ],
     "prompt_templates": [

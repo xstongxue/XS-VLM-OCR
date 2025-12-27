@@ -40,7 +40,9 @@ set(ADAPTER_SOURCES
     src/adapters/CustomAdapter.cpp
     src/adapters/GLMAdapter.cpp
     src/adapters/PaddleAdapter.cpp
+    src/adapters/DoubaoAdapter.cpp
     src/adapters/GeneralAdapter.cpp
+    src/adapters/GeminiAdapter.cpp
 )
 
 set(ADAPTER_HEADERS
@@ -49,7 +51,9 @@ set(ADAPTER_HEADERS
     src/adapters/CustomAdapter.h
     src/adapters/GLMAdapter.h
     src/adapters/PaddleAdapter.h
+    src/adapters/DoubaoAdapter.h
     src/adapters/GeneralAdapter.h
+    src/adapters/GeminiAdapter.h
 )
 
 set(MANAGER_SOURCES

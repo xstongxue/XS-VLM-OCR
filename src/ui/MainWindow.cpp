@@ -5,7 +5,9 @@
 #include "../adapters/CustomAdapter.h"
 #include "../adapters/GLMAdapter.h"
 #include "../adapters/PaddleAdapter.h"
+#include "../adapters/DoubaoAdapter.h"
 #include "../adapters/GeneralAdapter.h"
+#include "../adapters/GeminiAdapter.h"
 #include "../utils/ConfigManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -1092,9 +1094,13 @@ void MainWindow::initializeServices()
             {
                 adapter = new CustomAdapter(config, this);
             }
-            else if (config.engine == "openai")
+            else if (config.engine == "gen")
             {
                 adapter = new GeneralAdapter(config, this);
+            }
+            else if (config.engine == "gemini")
+            {
+                adapter = new GeminiAdapter(config, this);
             }
             else if (config.engine == "glm")
             {
@@ -1103,6 +1109,10 @@ void MainWindow::initializeServices()
             else if (config.engine == "paddle")
             {
                 adapter = new PaddleAdapter(config, this);
+            }
+            else if (config.engine == "doubao")
+            {
+                adapter = new DoubaoAdapter(config, this);
             }
             else
             {
@@ -1844,7 +1854,16 @@ void MainWindow::onRecognizeClicked()
                              "3. API 地址配置错误\n\n"
                              "请点击设置按钮，在「模型配置」标签页填写 API Key").arg(modelName);
         } 
-        else if (engine == "openai") 
+        else if (engine == "gen") 
+        {
+            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
+                             "可能的原因：\n"
+                             "1. API Key 未配置或无效\n"
+                             "2. 网络连接问题\n"
+                             "3. API 地址配置错误\n\n"
+                             "请点击设置按钮，在「模型配置」标签页填写 API Key").arg(modelName);
+        }
+        else if (engine == "gemini") 
         {
             errorMsg = QString("模型未初始化！\n模型：%1\n\n"
                              "可能的原因：\n"
@@ -1870,6 +1889,15 @@ void MainWindow::onRecognizeClicked()
                              "2. API URL 未配置\n"
                              "3. 网络连接问题\n\n"
                              "请点击设置按钮，在「模型配置」标签页填写 API Token 和 API URL").arg(modelName);
+        } 
+        else if (engine == "doubao")
+        {
+            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
+                             "可能的原因：\n"
+                             "1. API Key 未配置或无效\n"
+                             "2. API URL 未配置\n"
+                             "3. 网络连接问题\n\n"
+                             "请点击设置按钮，在「模型配置」标签页填写 API Key 和 API URL").arg(modelName);
         } 
         else 
         {
@@ -2269,12 +2297,16 @@ void MainWindow::onSettingsChanged()
             adapter = new QwenAdapter(config, this);
         } else if (config.engine == "custom") {
             adapter = new CustomAdapter(config, this);
-        } else if (config.engine == "openai") {
+        } else if (config.engine == "gen") {
             adapter = new GeneralAdapter(config, this);
+        } else if (config.engine == "gemini") {
+            adapter = new GeminiAdapter(config, this);
         } else if (config.engine == "glm") {
             adapter = new GLMAdapter(config, this);
         } else if (config.engine == "paddle") {
             adapter = new PaddleAdapter(config, this);
+        } else if (config.engine == "doubao") {
+            adapter = new DoubaoAdapter(config, this);
         }
         
         if (adapter) {

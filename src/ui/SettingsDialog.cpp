@@ -919,8 +919,8 @@ void SettingsDialog::updateModelTabs()
     }
     
     // 按 provider 创建选项卡（排除 local、custom这些不需要单独显示的）
-    // 优先顺序：阿里云百炼 -> 智谱清言 -> 百度飞桨 -> 通用厂商 -> 其他
-    QStringList providerOrder = {"aliyun", "glm", "paddle", "gen"};  // 可以扩展其他提供商
+    // 优先顺序：阿里云百炼 -> 智谱清言 -> 百度飞桨 -> 字节豆包 -> 谷歌Gemini -> 通用厂商 -> 其他
+    QStringList providerOrder = {"aliyun", "glm", "paddle", "doubao", "gemini", "gen"};  // 可以扩展其他提供商
     for (const QString& providerId : providerOrder) {
         if (usedProviders.contains(providerId) && providers.contains(providerId)) {
             QString providerName = providers[providerId].name;
@@ -1646,9 +1646,12 @@ void ModelEditDialog::setupUI()
     m_engineCombo = new QComboBox();
     m_engineCombo->addItem("tesseract (Tesseract OCR)", "tesseract");
     m_engineCombo->addItem("qwen (阿里通义千问)", "qwen");
-    m_engineCombo->addItem("paddle (百度PaddleOCR)", "paddle");
-    m_engineCombo->addItem("custom (自定义OpenAI格式API)", "custom");
     m_engineCombo->addItem("glm (智谱清言)", "glm");
+    m_engineCombo->addItem("paddle (百度PaddleOCR)", "paddle");
+    m_engineCombo->addItem("doubao (字节豆包)", "doubao");
+    m_engineCombo->addItem("gemini (谷歌Gemini)", "gemini");
+    m_engineCombo->addItem("gen (通用OpenAI兼容)", "gen");
+    m_engineCombo->addItem("custom (自定义OpenAI格式API)", "custom");
     formLayout->addRow("引擎*:", m_engineCombo);
     
     // Provider 选择
@@ -1657,10 +1660,12 @@ void ModelEditDialog::setupUI()
     m_providerCombo->addItem("阿里云百炼 (通义千问)", "aliyun");
     m_providerCombo->addItem("智谱清言 (GLM)", "glm");
     m_providerCombo->addItem("百度飞桨 (PaddleOCR)", "paddle");
+    m_providerCombo->addItem("字节豆包 (Ark)", "doubao");
+    m_providerCombo->addItem("谷歌（Gemini）", "gemini");
     m_providerCombo->addItem("通用厂商 (OpenAI兼容接口)", "gen");
     formLayout->addRow("API 提供商:", m_providerCombo);
     
-    m_enabledCheck = new QCheckBox("启用此模型*:");
+    m_enabledCheck = new QCheckBox("启用此模型*");
     m_enabledCheck->setChecked(true);
     formLayout->addRow("", m_enabledCheck);
     
