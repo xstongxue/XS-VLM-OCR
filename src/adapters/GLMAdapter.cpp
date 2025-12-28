@@ -497,4 +497,3 @@ QString GLMAdapter::parseAPIResponse(const QByteArray& response, QString& errorM
 
     return content;
 }
-

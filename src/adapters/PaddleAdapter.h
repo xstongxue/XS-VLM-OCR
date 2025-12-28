@@ -36,4 +36,3 @@ private:
     QNetworkAccessManager* m_networkManager;  // 网络管理器
     QMutex m_mutex;             // 线程安全
 };
-

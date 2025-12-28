@@ -1810,7 +1810,7 @@ void MainWindow::startBatchProcessing(const QStringList& files, SubmitSource sou
     m_batchFiles.clear();
     m_batchItems.clear();
     m_batchViewIndex = -1;
-    m_batchProcessingIndex = -1;
+    m_batchInFlight = 0;
     m_batchIndex = 0;
     m_batchPrompt = m_promptEdit ? m_promptEdit->toPlainText().trimmed() : QString();
     m_batchSource = source;
@@ -1839,51 +1839,56 @@ void MainWindow::startBatchProcessing(const QStringList& files, SubmitSource sou
         return;
     }
 
+    // 预览第一张
+    m_batchViewIndex = 0;
+    showBatchItem(0);
+
     if (skipped > 0) {
         showStatusMessage(QString("开始批量处理，共 %1 张（跳过 %2 张无效图片）").arg(added).arg(skipped));
     } else {
         showStatusMessage(QString("开始批量处理，共 %1 张").arg(added));
     }
+    m_recognizing = true;
+    m_recognizeBtn->setEnabled(false);
+    setRecognizeButtonText("执行中...");
     updateBatchNav();
-    processNextBatchImage();
+    dispatchBatchJobs();
 }
 
-void MainWindow::processNextBatchImage()
+void MainWindow::dispatchBatchJobs()
 {
     if (!m_batchRunning)
         return;
 
-    if (m_batchIndex >= m_batchFiles.size()) {
+    while (m_batchInFlight < kMaxBatchConcurrent && m_batchIndex < m_batchFiles.size()) {
+        int idx = m_batchIndex++;
+        if (idx >= m_batchItems.size())
+            break;
+
+        BatchItem& item = m_batchItems[idx];
+        if (item.image.isNull()) {
+            continue;
+        }
+
+        QString filePath = m_batchFiles.at(idx);
+        QString contextId = QString("batch:%1").arg(idx);
+        m_batchInFlight++;
+
+        showStatusMessage(QString("批量处理中 (%1/%2): %3")
+                              .arg(idx + 1)
+                              .arg(m_batchFiles.size())
+                              .arg(QFileInfo(filePath).fileName()));
+        m_pipeline->submitImage(item.image, m_batchSource, m_batchPrompt, contextId);
+    }
+
+    if (m_batchIndex >= m_batchFiles.size() && m_batchInFlight == 0) {
         m_batchRunning = false;
         showStatusMessage("批量处理完成");
-        return;
+        m_recognizing = false;
+        m_recognizeBtn->setEnabled(true);
+        setRecognizeButtonText("询问AI");
     }
 
-    m_batchProcessingIndex = m_batchIndex;
-    QString filePath = m_batchFiles.at(m_batchIndex);
-    if (m_batchProcessingIndex >= m_batchItems.size()) {
-        m_batchRunning = false;
-        return;
-    }
-
-    BatchItem& item = m_batchItems[m_batchProcessingIndex];
-    if (item.image.isNull()) {
-        showStatusMessage(QString("跳过无效图片: %1").arg(QFileInfo(filePath).fileName()));
-        ++m_batchIndex;
-        processNextBatchImage();
-        return;
-    }
-
-    ++m_batchIndex;
-
-    // 预览当前图片并提交识别
-    m_batchViewIndex = m_batchProcessingIndex;
-    loadImage(item.image, m_batchSource);
-    showStatusMessage(QString("批量处理中 (%1/%2): %3")
-                          .arg(m_batchIndex)
-                          .arg(m_batchFiles.size())
-                          .arg(QFileInfo(filePath).fileName()));
-    m_pipeline->submitImage(item.image, m_batchSource, m_batchPrompt);
     updateBatchNav();
 }
 
@@ -2004,7 +2009,7 @@ void MainWindow::onRecognizeClicked()
     m_batchIndex = 0;
     m_batchItems.clear();
     m_batchViewIndex = -1;
-    m_batchProcessingIndex = -1;
+    m_batchInFlight = 0;
     if (m_batchInfoLabel) m_batchInfoLabel->hide();
     if (m_prevImageBtn) m_prevImageBtn->hide();
     if (m_nextImageBtn) m_nextImageBtn->hide();
@@ -2272,10 +2277,11 @@ void MainWindow::setRecognizeButtonText(const QString& text)
     }
 }
 
-void MainWindow::onRecognitionStarted(const QImage &image, SubmitSource source)
+void MainWindow::onRecognitionStarted(const QImage &image, SubmitSource source, const QString& contextId)
 {
     Q_UNUSED(image);
     Q_UNUSED(source);
+    Q_UNUSED(contextId);
 
     qDebug() << "========================================";
     qDebug() << "UI: 识别任务开始";
@@ -2287,15 +2293,11 @@ void MainWindow::onRecognitionStarted(const QImage &image, SubmitSource source)
     showStatusMessage("正在执行...");
 }
 
-void MainWindow::onRecognitionCompleted(const OCRResult &result, const QImage &image, SubmitSource source)
+void MainWindow::onRecognitionCompleted(const OCRResult &result, const QImage &image, SubmitSource source, const QString& contextId)
 {
-    m_recognizing = false;
-    m_recognizeBtn->setEnabled(true);
-    setRecognizeButtonText("询问AI");
-
     if (!result.success)
     {
-        onRecognitionFailed(result.errorMessage, image, source);
+        onRecognitionFailed(result.errorMessage, image, source, contextId);
         return;
     }
 
@@ -2325,16 +2327,32 @@ void MainWindow::onRecognitionCompleted(const OCRResult &result, const QImage &i
 
     // 批量任务则继续下一张
     if (m_batchRunning) {
-        if (m_batchProcessingIndex >= 0 && m_batchProcessingIndex < m_batchItems.size()) {
-            m_batchItems[m_batchProcessingIndex].result = result;
-            m_batchItems[m_batchProcessingIndex].finished = true;
-            m_batchItems[m_batchProcessingIndex].error.clear();
+        int idx = -1;
+        if (contextId.startsWith("batch:")) {
+            bool ok = false;
+            idx = contextId.mid(6).toInt(&ok);
+            if (!ok) idx = -1;
         }
-        processNextBatchImage();
+        if (idx >= 0 && idx < m_batchItems.size()) {
+            m_batchItems[idx].result = result;
+            m_batchItems[idx].finished = true;
+            m_batchItems[idx].error.clear();
+        }
+        m_batchInFlight = qMax(0, m_batchInFlight - 1);
+        dispatchBatchJobs();
+        bool busy = m_batchRunning && (m_batchInFlight > 0 || m_batchIndex < m_batchFiles.size());
+        m_recognizing = busy;
+        m_recognizeBtn->setEnabled(!busy);
+        setRecognizeButtonText(busy ? "执行中..." : "询问AI");
+        return;
     }
+
+    m_recognizing = false;
+    m_recognizeBtn->setEnabled(true);
+    setRecognizeButtonText("询问AI");
 }
 
-void MainWindow::onRecognitionFailed(const QString &error, const QImage &image, SubmitSource source)
+void MainWindow::onRecognitionFailed(const QString &error, const QImage &image, SubmitSource source, const QString& contextId)
 {
     Q_UNUSED(image);
     Q_UNUSED(source);
@@ -2353,14 +2371,30 @@ void MainWindow::onRecognitionFailed(const QString &error, const QImage &image, 
 
     // 批量任务失败后继续下一张
     if (m_batchRunning) {
-        if (m_batchProcessingIndex >= 0 && m_batchProcessingIndex < m_batchItems.size()) {
-            m_batchItems[m_batchProcessingIndex].finished = true;
-            m_batchItems[m_batchProcessingIndex].error = error;
-            m_batchItems[m_batchProcessingIndex].result.success = false;
-            m_batchItems[m_batchProcessingIndex].result.errorMessage = error;
+        int idx = -1;
+        if (contextId.startsWith("batch:")) {
+            bool ok = false;
+            idx = contextId.mid(6).toInt(&ok);
+            if (!ok) idx = -1;
         }
-        processNextBatchImage();
+        if (idx >= 0 && idx < m_batchItems.size()) {
+            m_batchItems[idx].finished = true;
+            m_batchItems[idx].error = error;
+            m_batchItems[idx].result.success = false;
+            m_batchItems[idx].result.errorMessage = error;
+        }
+        m_batchInFlight = qMax(0, m_batchInFlight - 1);
+        dispatchBatchJobs();
+        bool busy = m_batchRunning && (m_batchInFlight > 0 || m_batchIndex < m_batchFiles.size());
+        m_recognizing = busy;
+        m_recognizeBtn->setEnabled(!busy);
+        setRecognizeButtonText(busy ? "执行中..." : "询问AI");
+        return;
     }
+
+    m_recognizing = false;
+    m_recognizeBtn->setEnabled(true);
+    setRecognizeButtonText("询问AI");
 }
 
 void MainWindow::addHistoryItem(const HistoryItem &item)

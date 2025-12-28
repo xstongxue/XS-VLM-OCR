@@ -66,9 +66,9 @@ private slots:
     void onSettingsClicked();
     
     // OCR Pipeline 回调
-    void onRecognitionStarted(const QImage& image, SubmitSource source);
-    void onRecognitionCompleted(const OCRResult& result, const QImage& image, SubmitSource source);
-    void onRecognitionFailed(const QString& error, const QImage& image, SubmitSource source);
+    void onRecognitionStarted(const QImage& image, SubmitSource source, const QString& contextId);
+    void onRecognitionCompleted(const OCRResult& result, const QImage& image, SubmitSource source, const QString& contextId);
+    void onRecognitionFailed(const QString& error, const QImage& image, SubmitSource source, const QString& contextId);
     
     // 历史列表选择
     void onHistoryItemClicked(QListWidgetItem* item);
@@ -103,7 +103,7 @@ private:
     void loadImage(const QImage& image, SubmitSource source);
     // 批量处理
     void startBatchProcessing(const QStringList& files, SubmitSource source);
-    void processNextBatchImage();
+    void dispatchBatchJobs();
     void showBatchItem(int index);
     void updateBatchNav();
     // 添加历史记录
@@ -204,7 +204,8 @@ private:
     bool m_batchRunning = false;
     SubmitSource m_batchSource = SubmitSource::Upload;
     int m_batchViewIndex = -1;
-    int m_batchProcessingIndex = -1;
+    int m_batchInFlight = 0;
+    static constexpr int kMaxBatchConcurrent = 4; // 默认并发数，可根据需要调整
 
     // 托盘提示是否已展示（避免重复弹出）
     bool m_trayNotified;

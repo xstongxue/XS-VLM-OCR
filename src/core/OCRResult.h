@@ -21,6 +21,7 @@ struct OCRResult {
     QVector<TextBlock> textBlocks;   // 识别的文本块列表
     QString fullText;                // 合并后的完整文本
     QString modelName;               // 使用的模型名称
+    QString contextId;               // 自定义上下文ID（用于批量/并发追踪）
     QDateTime timestamp;             // 识别时间戳
     qint64 processingTimeMs;         // 处理耗时（毫秒）
     

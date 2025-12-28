@@ -23,17 +23,18 @@ public:
     // 提交图像进行识别（异步）
     void submitImage(const QImage& image, 
                     SubmitSource source = SubmitSource::Upload,
-                    const QString& prompt = QString());
+                    const QString& prompt = QString(),
+                    const QString& contextId = QString());
     
 signals:
     // 识别开始
-    void recognitionStarted(const QImage& image, SubmitSource source);
+    void recognitionStarted(const QImage& image, SubmitSource source, const QString& contextId);
     
     // 识别完成
-    void recognitionCompleted(const OCRResult& result, const QImage& image, SubmitSource source);
+    void recognitionCompleted(const OCRResult& result, const QImage& image, SubmitSource source, const QString& contextId);
     
     // 识别失败
-    void recognitionFailed(const QString& error, const QImage& image, SubmitSource source);
+    void recognitionFailed(const QString& error, const QImage& image, SubmitSource source, const QString& contextId);
     
     // 进度更新（可选）
     void progressUpdated(int percentage);
@@ -53,18 +54,20 @@ public:
            const QImage& image,
            SubmitSource source,
            const QString& prompt,
+           const QString& contextId,
            QObject* receiver);
     
     void run() override;
     
 signals:
-    void finished(const OCRResult& result, const QImage& image, SubmitSource source);
-    void error(const QString& errorMsg, const QImage& image, SubmitSource source);
+    void finished(const OCRResult& result, const QImage& image, SubmitSource source, const QString& contextId);
+    void error(const QString& errorMsg, const QImage& image, SubmitSource source, const QString& contextId);
     
 private:
     ModelAdapter* m_adapter;
     QImage m_image;
     SubmitSource m_source;
     QString m_prompt;
+    QString m_contextId;
     QObject* m_receiver;
 };
