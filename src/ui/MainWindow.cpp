@@ -2008,17 +2008,71 @@ void MainWindow::onPreviewResultClicked()
     const QString currentText = m_resultText ? m_resultText->toPlainText() : QString();
     QDialog dialog(this);
     dialog.setWindowTitle("结果预览 (Markdown)");
-    dialog.resize(960, 600);
+    dialog.resize(960, 640);
     
     QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(10);
+
     QSplitter* splitter = new QSplitter(Qt::Horizontal, &dialog);
+    splitter->setHandleWidth(6);
+    splitter->setStyleSheet(
+        "QSplitter::handle { background: #f0f0f0; border: 1px solid #e0e0e0; }"
+        "QSplitter::handle:hover { background: #e6e6e6; }"
+    );
     
     QTextEdit* editor = new QTextEdit(splitter);
     editor->setPlainText(currentText);
     editor->setLineWrapMode(QTextEdit::NoWrap);
+    QFont codeFont("Consolas");
+    codeFont.setPointSize(11);
+    editor->setFont(codeFont);
+    editor->setStyleSheet(
+        "QTextEdit { "
+        "  background: #ffffff; "
+        "  border: 1px solid #dcdcdc; "
+        "  border-radius: 8px; "
+        "  padding: 12px; "
+        "  color: #1f1f1f; "
+        "  selection-background-color: #d0e7ff; "
+        "  selection-color: #000000; "
+        "}"
+    );
     
     QTextBrowser* preview = new QTextBrowser(splitter);
     preview->setOpenExternalLinks(true);
+    preview->setMarkdown(currentText);
+    QFont bodyFont = preview->font();
+    bodyFont.setPointSize(11);
+    preview->setFont(bodyFont);
+    preview->setStyleSheet(
+        "QTextBrowser { "
+        "  background: #fafafa; "
+        "  border: 1px solid #dcdcdc; "
+        "  border-radius: 8px; "
+        "  padding: 12px; "
+        "  color: #1f1f1f; "
+        "}"
+    );
+    preview->document()->setDefaultStyleSheet(
+        "body { font-family: 'Segoe UI','Microsoft YaHei','Helvetica',sans-serif; "
+        "       font-size: 11pt; color: #1f1f1f; line-height: 1.6; }"
+        "h1 { font-size: 18pt; margin: 0 0 12px 0; }"
+        "h2 { font-size: 16pt; margin: 0 0 10px 0; }"
+        "h3 { font-size: 14pt; margin: 0 0 8px 0; }"
+        "p { margin: 0 0 10px 0; }"
+        "ul, ol { padding-left: 22px; margin: 6px 0; }"
+        "li { margin: 4px 0; }"
+        "code { font-family: 'Consolas','Menlo','Monaco','Courier New',monospace; "
+        "       background: #f0f0f0; padding: 2px 4px; border-radius: 4px; }"
+        "pre { background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 6px; "
+        "      padding: 10px; overflow: auto; }"
+        "pre code { background: transparent; padding: 0; }"
+        "blockquote { color: #555; border-left: 4px solid #dddddd; padding-left: 10px; margin-left: 0; }"
+        "a { color: #0078d7; text-decoration: none; }"
+        "a:hover { text-decoration: underline; }"
+        "img { max-width: 100%; }"
+        );
     preview->setMarkdown(currentText);
     
     splitter->addWidget(editor);
