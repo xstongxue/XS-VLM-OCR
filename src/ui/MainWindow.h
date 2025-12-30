@@ -88,7 +88,7 @@ private slots:
     void disableShortcuts();
     void onScreenshotShortcut();
     void onRecognizeShortcut();
-    
+
 private:
     // 初始化 UI
     void setupUI();
@@ -142,6 +142,8 @@ private:
     QComboBox* m_modelComboBox;
     QTabWidget* m_promptCategoryTabs;  // 提示词分类选项卡
     QMap<QString, QListWidget*> m_promptTypeLists;  // 按类型分组的提示词列表
+    QVector<PromptTemplate> m_promptTemplatesCache; // 缓存上次加载的提示词，避免空列表时丢失
+    QVector<PromptTemplate> m_promptTemplatesBaseline; // 记录首次成功加载的提示词集合，用于回退
     QTextEdit* m_promptEdit;
     QPushButton* m_uploadBtn;
     QPushButton* m_pasteBtn;

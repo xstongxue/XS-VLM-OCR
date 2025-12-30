@@ -343,9 +343,10 @@ void MainWindow::setupUI()
     
     // 创建提示词分类选项卡
     m_promptCategoryTabs = new QTabWidget();
-    // 让提示词区域可充分显示，避免主题切换后显得数量变少
-    m_promptCategoryTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    m_promptCategoryTabs->setMinimumHeight(280);   // 提升最小高度，减少“少了很多”的错觉
+    // 固定提示词区域的高度，避免由于布局变化导致滚动条长度起伏
+    m_promptCategoryTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_promptCategoryTabs->setMinimumHeight(320);
+    m_promptCategoryTabs->setMaximumHeight(320);
     // 初始样式（会在主题切换时更新，这里使用默认主题）
     bool grayTheme = m_isGrayTheme;
     QString tabStyle = grayTheme
@@ -474,7 +475,7 @@ void MainWindow::setupUI()
           "  border-bottom-color: #000000; "
           "}";
     m_promptCategoryTabs->setStyleSheet(tabStyle);
-    configLayout->addWidget(m_promptCategoryTabs);
+    configLayout->addWidget(m_promptCategoryTabs, 1);
     
     // 提示词编辑（可展开，支持多行）
     m_promptEdit = new QTextEdit();
@@ -1284,177 +1285,9 @@ void MainWindow::initializeServices()
         int idx = m_modelComboBox->count() - 1;
         m_modelComboBox->setItemData(idx, itemText, Qt::ToolTipRole); // 悬浮显示完整信息
     }
-    
+
     // 加载提示词模板到选项卡（按类型分组）
-    while (m_promptCategoryTabs->count() > 0) {
-        m_promptCategoryTabs->removeTab(0);
-    }
-    m_promptTypeLists.clear(); // 清空现有提示词模板列表
-    
-    QList<PromptTemplate> templates = m_configManager->getPromptTemplates();
-    
-    // 按类型分组
-    QMap<QString, QList<PromptTemplate>> typeGroups;
-    for (const PromptTemplate& tmpl : templates) {
-        typeGroups[tmpl.type].append(tmpl);
-    }
-    
-    // 定义类型顺序
-    QStringList typeOrder = {"识别", "翻译", "解答", "整理"};
-    
-    // 创建列表样式
-    bool grayTheme = m_configManager->getSetting("gray_theme", false).toBool();
-    
-    // 滚动条样式（与主题匹配）
-    QString scrollBarStyle = grayTheme
-        ? "QScrollBar:vertical { border: none; background: #2b2b2b; width: 12px; border-radius: 6px; }"
-          "QScrollBar::handle:vertical { background: #555555; border-radius: 6px; min-height: 30px; margin: 2px; }"
-          "QScrollBar::handle:vertical:hover { background: #666666; }"
-          "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
-          "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #2b2b2b; }"
-        : "QScrollBar:vertical { border: none; background: #f5f5f5; width: 12px; border-radius: 6px; }"
-          "QScrollBar::handle:vertical { background: #c0c0c0; border-radius: 6px; min-height: 30px; margin: 2px; }"
-          "QScrollBar::handle:vertical:hover { background: #a0a0a0; }"
-          "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
-          "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #f5f5f5; }";
-    
-    QString listStyle = grayTheme
-        ? "QListWidget { "
-          "  border: none; "
-          "  background: #2b2b2b; "
-          "  color: #e0e0e0; "
-          "  padding: 4px; "
-          "}"
-          "QListWidget::item { "
-          "  padding: 10px 12px; "
-          "  border-bottom: 1px solid rgba(255, 255, 255, 0.08); "
-          "  border-radius: 4px; "
-          "}"
-          "QListWidget::item:selected { "
-          "  background: rgba(255, 255, 255, 0.12); "
-          "  color: #ffffff; "
-          "}"
-          "QListWidget::item:hover { "
-          "  background: rgba(255, 255, 255, 0.08); "
-          "}"
-          "QListWidget::item:selected:hover { "
-          "  background: rgba(255, 255, 255, 0.12); "
-          "}"
-        : "QListWidget { "
-          "  border: none; "
-          "  background: transparent; "
-          "  color: #000000; "
-          "  padding: 4px; "
-          "}"
-          "QListWidget::item { "
-          "  padding: 8px 10px; "
-          "  border-bottom: 1px solid #f0f0f0; "
-          "  border-radius: 4px; "
-          "}"
-          "QListWidget::item:selected { "
-          "  background: #e0e0e0; "
-          "  color: #000000; "
-          "}"
-          "QListWidget::item:hover { "
-          "  background: #f5f5f5; "
-          "}"
-          "QListWidget::item:selected:hover { "
-          "  background: #e0e0e0; "
-          "}";
-    
-    // 按类型顺序创建选项卡
-    for (const QString& type : typeOrder) {
-        if (typeGroups.contains(type) && !typeGroups[type].isEmpty()) {
-            // 创建选项卡
-            QWidget* tab = new QWidget();
-            QVBoxLayout* layout = new QVBoxLayout(tab);
-            layout->setContentsMargins(0, 0, 0, 0);
-            
-            QListWidget* list = new QListWidget();
-            list->setStyleSheet(listStyle);
-            list->verticalScrollBar()->setStyleSheet(scrollBarStyle);
-            layout->addWidget(list);
-            
-            m_promptCategoryTabs->addTab(tab, type);
-            m_promptTypeLists[type] = list;
-            
-            // 添加该类型下的所有模板
-            for (const PromptTemplate& tmpl : typeGroups[type]) {
-                QString displayName = QString("%1 [%2]").arg(tmpl.name, tmpl.category);
-                QListWidgetItem* item = new QListWidgetItem(displayName);
-                item->setData(Qt::UserRole, tmpl.content);
-                item->setData(Qt::UserRole + 1, tmpl.name);
-                list->addItem(item);
-            }
-            
-            // 连接点击事件
-            connect(list, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
-                QString content = item->data(Qt::UserRole).toString();
-                if (!content.isEmpty() && m_promptEdit) {
-                    m_promptEdit->setPlainText(content);
-                    qDebug() << "选择提示词模板:" << item->data(Qt::UserRole + 1).toString();
-                }
-            });
-        }
-    }
-    
-    // 处理其他未在typeOrder中的类型
-    for (auto it = typeGroups.begin(); it != typeGroups.end(); ++it) {
-        if (!typeOrder.contains(it.key()) && !it.value().isEmpty()) {
-            QWidget* tab = new QWidget();
-            QVBoxLayout* layout = new QVBoxLayout(tab);
-            layout->setContentsMargins(0, 0, 0, 0);
-            
-            QListWidget* list = new QListWidget();
-            list->setStyleSheet(listStyle);
-            layout->addWidget(list);
-            
-            m_promptCategoryTabs->addTab(tab, it.key());
-            m_promptTypeLists[it.key()] = list;
-            
-            for (const PromptTemplate& tmpl : it.value()) {
-                QString displayName = QString("%1 [%2]").arg(tmpl.name, tmpl.category);
-                QListWidgetItem* item = new QListWidgetItem(displayName);
-                item->setData(Qt::UserRole, tmpl.content);
-                item->setData(Qt::UserRole + 1, tmpl.name);
-                list->addItem(item);
-            }
-            
-            connect(list, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
-                QString content = item->data(Qt::UserRole).toString();
-                if (!content.isEmpty() && m_promptEdit) {
-                    m_promptEdit->setPlainText(content);
-                    qDebug() << "选择提示词模板:" << item->data(Qt::UserRole + 1).toString();
-                }
-            });
-        }
-    }
-    
-    // 默认选中第一个选项卡的第一个模板（优先"识别"选项卡的"通用识别"）
-    if (m_promptTypeLists.contains("识别")) {
-        QListWidget* list = m_promptTypeLists["识别"];
-        m_promptCategoryTabs->setCurrentIndex(0);
-        // 查找"通用识别"
-        for (int i = 0; i < list->count(); i++) {
-            QListWidgetItem* item = list->item(i);
-            if (item && item->data(Qt::UserRole + 1).toString().contains("通用识别")) {
-                list->setCurrentItem(item);
-                QString content = item->data(Qt::UserRole).toString();
-                if (!content.isEmpty() && m_promptEdit) {
-                    m_promptEdit->setPlainText(content);
-                }
-                break;
-            }
-        }
-        // 如果没找到"通用识别"，选中第一个
-        if (list->count() > 0 && list->currentItem() == nullptr) {
-            list->setCurrentItem(list->item(0));
-            QString content = list->item(0)->data(Qt::UserRole).toString();
-            if (!content.isEmpty() && m_promptEdit) {
-                m_promptEdit->setPlainText(content);
-            }
-        }
-    }
+    reloadPromptTabs();
 
     // 设置当前模型
     if (m_modelManager->getActiveModel())
@@ -2623,122 +2456,7 @@ void MainWindow::onSettingsChanged()
             this, &MainWindow::onModelChanged);
     
     // 重新加载提示词模板选项卡
-    // 清空现有选项卡
-    while (m_promptCategoryTabs->count() > 0) {
-        m_promptCategoryTabs->removeTab(0);
-    }
-    m_promptTypeLists.clear();
-    
-    QList<PromptTemplate> templates = m_configManager->getPromptTemplates();
-    
-    // 按类型分组
-    QMap<QString, QList<PromptTemplate>> typeGroups;
-    for (const PromptTemplate& tmpl : templates) {
-        typeGroups[tmpl.type].append(tmpl);
-    }
-    
-    // 定义类型顺序
-    QStringList typeOrder = {"识别", "翻译", "解答", "整理"};
-    
-    // 创建列表样式（与导航栏选中样式一致）
-    bool grayTheme = m_configManager->getSetting("gray_theme", false).toBool();
-    QString selectedBg = grayTheme ? "#404040" : "#e0e0e0";  // 与导航栏选中背景一致
-    QString selectedBorder = grayTheme ? "#ffffff" : "#000000";  // 与导航栏选中边框一致
-    QString selectedText = grayTheme ? "#ffffff" : "#000000";  // 与导航栏选中文字一致
-    QString hoverBg = grayTheme ? "#333333" : "#f5f5f5";  // 与导航栏悬停背景一致
-    
-    // 滚动条样式（与主题匹配）
-    QString scrollBarStyle = grayTheme
-        ? "QScrollBar:vertical { border: none; background: #2b2b2b; width: 12px; border-radius: 6px; }"
-          "QScrollBar::handle:vertical { background: #555555; border-radius: 6px; min-height: 30px; margin: 2px; }"
-          "QScrollBar::handle:vertical:hover { background: #666666; }"
-          "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
-          "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #2b2b2b; }"
-        : "QScrollBar:vertical { border: none; background: #f5f5f5; width: 12px; border-radius: 6px; }"
-          "QScrollBar::handle:vertical { background: #c0c0c0; border-radius: 6px; min-height: 30px; margin: 2px; }"
-          "QScrollBar::handle:vertical:hover { background: #a0a0a0; }"
-          "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
-          "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #f5f5f5; }";
-    
-    QString listStyle = grayTheme
-        ? QString("QListWidget { border: none; background: transparent; color: #e0e0e0; padding: 4px; }"
-                  "QListWidget::item { padding: 8px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; }"
-                  "QListWidget::item:selected { background: %1; color: %2; }"
-                  "QListWidget::item:hover { background: %3; }"
-                  "QListWidget::item:selected:hover { background: %1; }")
-          .arg(selectedBg).arg(selectedText).arg(hoverBg)
-        : QString("QListWidget { border: none; background: transparent; color: #000000; padding: 4px; }"
-                  "QListWidget::item { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; border-radius: 4px; }"
-                  "QListWidget::item:selected { background: %1; color: %2; }"
-                  "QListWidget::item:hover { background: %3; }"
-                  "QListWidget::item:selected:hover { background: %1; }")
-          .arg(selectedBg).arg(selectedText).arg(hoverBg);
-    
-    // 按类型顺序创建选项卡
-    for (const QString& type : typeOrder) {
-        if (typeGroups.contains(type) && !typeGroups[type].isEmpty()) {
-            QWidget* tab = new QWidget();
-            QVBoxLayout* layout = new QVBoxLayout(tab);
-            layout->setContentsMargins(0, 0, 0, 0);
-            
-            QListWidget* list = new QListWidget();
-            list->setStyleSheet(listStyle);
-            list->verticalScrollBar()->setStyleSheet(scrollBarStyle);
-            layout->addWidget(list);
-            
-            m_promptCategoryTabs->addTab(tab, type);
-            m_promptTypeLists[type] = list;
-            
-            for (const PromptTemplate& tmpl : typeGroups[type]) {
-                QString displayName = QString("%1 [%2]").arg(tmpl.name, tmpl.category);
-                QListWidgetItem* item = new QListWidgetItem(displayName);
-                item->setData(Qt::UserRole, tmpl.content);
-                item->setData(Qt::UserRole + 1, tmpl.name);
-                list->addItem(item);
-            }
-            
-            connect(list, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
-                QString content = item->data(Qt::UserRole).toString();
-                if (!content.isEmpty() && m_promptEdit) {
-                    m_promptEdit->setPlainText(content);
-                    qDebug() << "选择提示词模板:" << item->data(Qt::UserRole + 1).toString();
-                }
-            });
-        }
-    }
-    
-    // 处理其他未在typeOrder中的类型
-    for (auto it = typeGroups.begin(); it != typeGroups.end(); ++it) {
-        if (!typeOrder.contains(it.key()) && !it.value().isEmpty()) {
-            QWidget* tab = new QWidget();
-            QVBoxLayout* layout = new QVBoxLayout(tab);
-            layout->setContentsMargins(0, 0, 0, 0);
-            
-            QListWidget* list = new QListWidget();
-            list->setStyleSheet(listStyle);
-            list->verticalScrollBar()->setStyleSheet(scrollBarStyle);
-            layout->addWidget(list);
-            
-            m_promptCategoryTabs->addTab(tab, it.key());
-            m_promptTypeLists[it.key()] = list;
-            
-            for (const PromptTemplate& tmpl : it.value()) {
-                QString displayName = QString("%1 [%2]").arg(tmpl.name, tmpl.category);
-                QListWidgetItem* item = new QListWidgetItem(displayName);
-                item->setData(Qt::UserRole, tmpl.content);
-                item->setData(Qt::UserRole + 1, tmpl.name);
-                list->addItem(item);
-            }
-            
-            connect(list, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
-                QString content = item->data(Qt::UserRole).toString();
-                if (!content.isEmpty() && m_promptEdit) {
-                    m_promptEdit->setPlainText(content);
-                    qDebug() << "选择提示词模板:" << item->data(Qt::UserRole + 1).toString();
-                }
-            });
-        }
-    }
+    reloadPromptTabs();
     
     // 重新注册快捷键
     setupShortcuts();
@@ -2954,26 +2672,25 @@ void MainWindow::onThemeToggleClicked()
 void MainWindow::reloadPromptTabs()
 {
     if (!m_configManager || !m_promptCategoryTabs) return;
-    
-    // 清空现有
-    while (m_promptCategoryTabs->count() > 0) {
-        m_promptCategoryTabs->removeTab(0);
-    }
-    m_promptTypeLists.clear();
-    
+
+    // 1) 数据源：配置 -> 缓存（空时回退），首次成功锁定基线，之后始终使用基线保证数量稳定
     QList<PromptTemplate> templates = m_configManager->getPromptTemplates();
-    
-    // 按类型分组
-    QMap<QString, QList<PromptTemplate>> typeGroups;
-    for (const PromptTemplate& tmpl : templates) {
-        typeGroups[tmpl.type].append(tmpl);
+    if (templates.isEmpty() && !m_promptTemplatesCache.isEmpty()) {
+        templates = m_promptTemplatesCache.toList();
+    } else {
+        m_promptTemplatesCache = QVector<PromptTemplate>::fromList(templates);
     }
-    
-    QStringList typeOrder = {"识别", "翻译", "解答", "整理"};
-    
-    bool grayTheme = m_isGrayTheme;
-    
-    QString scrollBarStyle = grayTheme
+    if (m_promptTemplatesBaseline.isEmpty() && !templates.isEmpty()) {
+        m_promptTemplatesBaseline = QVector<PromptTemplate>::fromList(templates);
+    }
+    if (!m_promptTemplatesBaseline.isEmpty()) {
+        templates = m_promptTemplatesBaseline.toList();
+        m_promptTemplatesCache = m_promptTemplatesBaseline;
+    }
+
+    // 2) 样式
+    const bool grayTheme = m_isGrayTheme;
+    const QString scrollBarStyle = grayTheme
         ? "QScrollBar:vertical { border: none; background: #2b2b2b; width: 12px; border-radius: 6px; }"
           "QScrollBar::handle:vertical { background: #555555; border-radius: 6px; min-height: 30px; margin: 2px; }"
           "QScrollBar::handle:vertical:hover { background: #666666; }"
@@ -2984,104 +2701,93 @@ void MainWindow::reloadPromptTabs()
           "QScrollBar::handle:vertical:hover { background: #a0a0a0; }"
           "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
           "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #f5f5f5; }";
-    
-    QString listStyle = grayTheme
-        ? "QListWidget { "
-          "  border: none; "
-          "  background: #2b2b2b; "
-          "  color: #e0e0e0; "
-          "  padding: 4px; "
-          "}"
-          "QListWidget::item { "
-          "  padding: 10px 12px; "
-          "  border-bottom: 1px solid rgba(255, 255, 255, 0.08); "
-          "  border-radius: 4px; "
-          "}"
-          "QListWidget::item:selected { "
-          "  background: rgba(255, 255, 255, 0.12); "
-          "  color: #ffffff; "
-          "}"
-          "QListWidget::item:hover { "
-          "  background: rgba(255, 255, 255, 0.08); "
-          "}"
-          "QListWidget::item:selected:hover { "
-          "  background: rgba(255, 255, 255, 0.12); "
-          "}"
-        : "QListWidget { "
-          "  border: none; "
-          "  background: transparent; "
-          "  color: #000000; "
-          "  padding: 4px; "
-          "}"
-          "QListWidget::item { "
-          "  padding: 8px 10px; "
-          "  border-bottom: 1px solid #f0f0f0; "
-          "  border-radius: 4px; "
-          "}"
-          "QListWidget::item:selected { "
-          "  background: #e0e0e0; "
-          "  color: #000000; "
-          "}"
-          "QListWidget::item:hover { "
-          "  background: #f5f5f5; "
-          "}"
-          "QListWidget::item:selected:hover { "
-          "  background: #e0e0e0; "
-          "}";
-    
-    auto addTabForType = [&](const QString& type, const QList<PromptTemplate>& listData) {
+
+    const QString listStyle = grayTheme
+        ? "QListWidget { border: none; background: #2b2b2b; color: #e0e0e0; padding: 4px; }"
+          "QListWidget::item { padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; }"
+          "QListWidget::item:selected { background: rgba(255, 255, 255, 0.12); color: #ffffff; }"
+          "QListWidget::item:hover { background: rgba(255, 255, 255, 0.08); }"
+          "QListWidget::item:selected:hover { background: rgba(255, 255, 255, 0.12); }"
+        : "QListWidget { border: none; background: transparent; color: #000000; padding: 4px; }"
+          "QListWidget::item { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; border-radius: 4px; }"
+          "QListWidget::item:selected { background: #e0e0e0; color: #000000; }"
+          "QListWidget::item:hover { background: #f5f5f5; }"
+          "QListWidget::item:selected:hover { background: #e0e0e0; }";
+
+    // 3) 清空并重建 Tab
+    while (m_promptCategoryTabs->count() > 0) m_promptCategoryTabs->removeTab(0);
+    m_promptTypeLists.clear();
+
+    const QStringList typeOrder = {"识别", "翻译", "解答", "整理"};
+    QMap<QString, QList<PromptTemplate>> groups;
+    for (const QString& t : typeOrder) groups[t] = {};
+    for (const PromptTemplate& tmpl : templates) 
+    {
+        groups[tmpl.type].append(tmpl);
+    }
+
+    auto addTab = [&](const QString& type, const QList<PromptTemplate>& data) {
         QWidget* tab = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(tab);
         layout->setContentsMargins(0, 0, 0, 0);
-        
+
         QListWidget* list = new QListWidget();
         list->setStyleSheet(listStyle);
         list->verticalScrollBar()->setStyleSheet(scrollBarStyle);
+        list->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        list->setMinimumHeight(240);
         layout->addWidget(list);
-        
+
         m_promptCategoryTabs->addTab(tab, type);
         m_promptTypeLists[type] = list;
-        
-        for (const PromptTemplate& tmpl : listData) {
-            QString displayName = QString("%1 [%2]").arg(tmpl.name, tmpl.category);
-            QListWidgetItem* item = new QListWidgetItem(displayName);
+
+        for (const PromptTemplate& tmpl : data) {
+            auto* item = new QListWidgetItem(QString("%1 [%2]").arg(tmpl.name, tmpl.category));
             item->setData(Qt::UserRole, tmpl.content);
             item->setData(Qt::UserRole + 1, tmpl.name);
-            item->setData(Qt::UserRole + 2, tmpl.name);
             list->addItem(item);
         }
-        
+
         connect(list, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
-            QString content = item->data(Qt::UserRole).toString();
-            if (!content.isEmpty() && m_promptEdit) {
+            if (!item || !m_promptEdit) return;
+            const QString content = item->data(Qt::UserRole).toString();
+            if (!content.isEmpty()) {
                 m_promptEdit->setPlainText(content);
                 qDebug() << "选择提示词模板:" << item->data(Qt::UserRole + 1).toString();
             }
         });
     };
-    
-    for (const QString& type : typeOrder) {
-        if (typeGroups.contains(type) && !typeGroups[type].isEmpty()) {
-            addTabForType(type, typeGroups[type]);
-        }
+
+    for (const QString& type : typeOrder) addTab(type, groups.value(type));
+    for (auto it = groups.begin(); it != groups.end(); ++it) {
+        if (!typeOrder.contains(it.key())) addTab(it.key(), it.value());
     }
-    for (auto it = typeGroups.begin(); it != typeGroups.end(); ++it) {
-        if (!typeOrder.contains(it.key()) && !it.value().isEmpty()) {
-            addTabForType(it.key(), it.value());
+
+    // 4) 默认选中（优先“识别”中的“通用识别”，否则首项）
+    if (m_promptTypeLists.contains("识别")) {
+        m_promptCategoryTabs->setCurrentIndex(typeOrder.indexOf("识别"));
+        QListWidget* list = m_promptTypeLists["识别"];
+        QListWidgetItem* targetItem = nullptr;
+        for (int i = 0; list && i < list->count(); ++i) {
+            QListWidgetItem* item = list->item(i);
+            if (item && item->data(Qt::UserRole + 1).toString().contains("通用识别")) {
+                targetItem = item;
+                break;
+            }
         }
-    }
-    
-    // 默认选中
-    if (!m_promptTypeLists.isEmpty()) {
+        if (!targetItem && list && list->count() > 0) targetItem = list->item(0);
+        if (list && targetItem) {
+            list->setCurrentItem(targetItem);
+            const QString content = targetItem->data(Qt::UserRole).toString();
+            if (!content.isEmpty() && m_promptEdit) m_promptEdit->setPlainText(content);
+        }
+    } else if (!m_promptTypeLists.isEmpty()) {
         m_promptCategoryTabs->setCurrentIndex(0);
         QListWidget* firstList = m_promptTypeLists.begin().value();
         if (firstList && firstList->count() > 0) {
             firstList->setCurrentRow(0);
-            QString content = firstList->item(0)->data(Qt::UserRole).toString();
-            if (!content.isEmpty() && m_promptEdit) {
-                m_promptEdit->setPlainText(content);
-                qDebug() << "选择提示词模板:" << firstList->item(0)->data(Qt::UserRole + 1).toString();
-            }
+            const QString content = firstList->item(0)->data(Qt::UserRole).toString();
+            if (!content.isEmpty() && m_promptEdit) m_promptEdit->setPlainText(content);
         }
     }
 }

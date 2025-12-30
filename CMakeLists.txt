@@ -2,21 +2,25 @@ cmake_minimum_required(VERSION 3.10)
 project(XS-VLM-OCR LANGUAGES CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_PREFIX_PATH "c:/Qt/Qt5.14.2/5.14.2/mingw73_32")
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_CURRENT_SOURCE_DIR}/app.rc")
 
-# Qt 组件
-find_package(Qt5 COMPONENTS 
-    Widgets 
-    Network 
-    Concurrent
-    REQUIRED
-)
+# Qt 搜索：优先 Qt6，失败再退回 Qt5；可在命令行通过 CMAKE_PREFIX_PATH 指定安装路径
+find_package(Qt6 COMPONENTS Widgets Network Concurrent QUIET)
+if(Qt6_FOUND)
+    set(QT_PACKAGE Qt6)
+else()
+    find_package(Qt5 COMPONENTS Widgets Network Concurrent REQUIRED)
+    set(QT_PACKAGE Qt5)
+endif()
+
+# Windows 图标资源
+if(WIN32)
+    set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_CURRENT_SOURCE_DIR}/app.rc")
+endif()
 
 # 指定 MSVC UTF-8 编码
 if(MSVC)
@@ -113,17 +117,16 @@ set(ALL_HEADERS
 
 # 创建可执行文件
 add_executable(${PROJECT_NAME}
-    WIN32  # 注释掉 WIN32 以显示控制台用于调试
     ${ALL_SOURCES}
     ${ALL_HEADERS}
-    ${APP_ICON_RESOURCE_WINDOWS}
+    $<$<PLATFORM_ID:Windows>:${APP_ICON_RESOURCE_WINDOWS}>
 )
 
 # 链接 Qt 库
 target_link_libraries(${PROJECT_NAME} PRIVATE 
-    Qt5::Widgets
-    Qt5::Network
-    Qt5::Concurrent
+    ${QT_PACKAGE}::Widgets
+    ${QT_PACKAGE}::Network
+    ${QT_PACKAGE}::Concurrent
 )
 
 # 复制配置模板文件到构建目录
@@ -148,6 +151,7 @@ endif()
 # 输出信息
 message(STATUS "======================================")
 message(STATUS "Project: ${PROJECT_NAME}")
-message(STATUS "Qt5 Dir: ${CMAKE_PREFIX_PATH}")
+message(STATUS "Qt Package: ${QT_PACKAGE}")
+message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "======================================")
