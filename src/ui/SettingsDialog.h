@@ -12,6 +12,7 @@
 #include <QKeySequenceEdit>
 #include "../utils/ConfigManager.h"
 #include <QLabel>
+#include <memory>
 
 // 设置对话框
 class SettingsDialog : public QDialog {
@@ -121,8 +122,8 @@ class ModelEditDialog : public QDialog {
     Q_OBJECT
     
 public:
-    explicit ModelEditDialog(const ModelConfig& config, QWidget* parent = nullptr);
-    explicit ModelEditDialog(QWidget* parent = nullptr);
+    explicit ModelEditDialog(const ModelConfig& config, ConfigManager* configManager = nullptr, QWidget* parent = nullptr);
+    explicit ModelEditDialog(ConfigManager* configManager = nullptr, QWidget* parent = nullptr);
     
     ModelConfig getModelConfig() const;
     
@@ -152,6 +153,7 @@ private:
     QDoubleSpinBox* m_temperatureEdit;
     QCheckBox* m_enableThinkingCheck;  // 思考模式开关
     QPushButton* m_testApiBtn;
+    ConfigManager* m_configManager;
     
     QPushButton* m_okBtn;
     QPushButton* m_cancelBtn;

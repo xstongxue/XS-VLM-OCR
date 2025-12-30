@@ -8,6 +8,18 @@
 #include <QMessageBox>
 #include <QIcon>
 #include <QDebug>
+#include <QApplication>
+#include <QImage>
+
+#include "../core/OCRResult.h"
+#include "../adapters/TesseractAdapter.h"
+#include "../adapters/QwenAdapter.h"
+#include "../adapters/CustomAdapter.h"
+#include "../adapters/GLMAdapter.h"
+#include "../adapters/PaddleAdapter.h"
+#include "../adapters/DoubaoAdapter.h"
+#include "../adapters/GeneralAdapter.h"
+#include "../adapters/GeminiAdapter.h"
 
 // ==================== SettingsDialog ====================
 SettingsDialog::SettingsDialog(ConfigManager* configManager, QWidget* parent)
@@ -1263,7 +1275,7 @@ void SettingsDialog::onApplyClicked()
 
 void SettingsDialog::onAddModelClicked()
 {
-    ModelEditDialog dialog(this);
+    ModelEditDialog dialog(m_configManager, this);
     if (dialog.exec() == QDialog::Accepted) {
         ModelConfig config = dialog.getModelConfig();
         m_configManager->updateModelConfig(config.id, config);
@@ -1332,7 +1344,7 @@ void SettingsDialog::onEditModelClicked()
     
     for (const ModelConfig& config : configs) {
         if (config.id == modelId) {
-            ModelEditDialog dialog(config, this);
+            ModelEditDialog dialog(config, m_configManager, this);
             if (dialog.exec() == QDialog::Accepted) {
                 ModelConfig newConfig = dialog.getModelConfig();
                 m_configManager->updateModelConfig(modelId, newConfig);
@@ -1603,16 +1615,18 @@ void SettingsDialog::onTestApiKeyClicked()
 }
 
 // ==================== ModelEditDialog ====================
-ModelEditDialog::ModelEditDialog(const ModelConfig& config, QWidget* parent)
+ModelEditDialog::ModelEditDialog(const ModelConfig& config, ConfigManager* configManager, QWidget* parent)
     : QDialog(parent)
+    , m_configManager(configManager)
 {
     setWindowTitle("编辑模型");
     setupUI();
     loadConfig(config);
 }
 
-ModelEditDialog::ModelEditDialog(QWidget* parent)
+ModelEditDialog::ModelEditDialog(ConfigManager* configManager, QWidget* parent)
     : QDialog(parent)
+    , m_configManager(configManager)
 {
     setWindowTitle("添加模型");
     setupUI();
@@ -1921,8 +1935,102 @@ void ModelEditDialog::onTypeChanged(int index)
 
 void ModelEditDialog::onTestApiKey()
 {
-    // TODO: 实现 API Key 测试
-    QMessageBox::information(this, "提示", "测试功能开发中...");
+    ModelConfig config = getModelConfig();
+
+    // 若选择了提供商，尝试补全 provider 配置中的 key/url
+    if (!config.provider.isEmpty() && m_configManager) {
+        const auto providers = m_configManager->getProviders();
+        if (providers.contains(config.provider)) {
+            const ProviderConfig& provider = providers[config.provider];
+            if (config.params.value("api_key").isEmpty() && !provider.apiKey.isEmpty()) {
+                config.params["api_key"] = provider.apiKey;
+            }
+            if (config.params.value("api_host").isEmpty() && !provider.apiHost.isEmpty()) {
+                config.params["api_host"] = provider.apiHost;
+            }
+        }
+    }
+
+    // 基本校验
+    if (config.engine.isEmpty()) {
+        QMessageBox::warning(this, "测试失败", "请先选择引擎类型");
+        return;
+    }
+    if (config.type == "online" && config.params.value("api_key").isEmpty()) {
+        QMessageBox::warning(this, "测试失败", "请填写 API Key 或选择已配置的提供商");
+        return;
+    }
+
+    // 部分离线 OCR 模型需要图片，不做提示词测试
+    if (config.engine == "tesseract" || config.engine == "paddle") {
+        QMessageBox::information(this, "提示", "当前模型为 OCR 引擎，请在主页上传图片后测试识别效果。");
+        return;
+    }
+
+    m_testApiBtn->setEnabled(false);
+    m_testApiBtn->setText("测试中...");
+    QApplication::setOverrideCursor(Qt::BusyCursor);
+
+    QString prompt = "你是谁？";
+    std::unique_ptr<ModelAdapter> adapter;
+    if (config.engine == "qwen") 
+    {
+        adapter = std::unique_ptr<QwenAdapter>(new QwenAdapter(config, this));
+    } 
+    else if (config.engine == "custom") 
+    {
+        adapter = std::unique_ptr<CustomAdapter>(new CustomAdapter(config, this));
+    } 
+    else if (config.engine == "gen") 
+    {
+        adapter = std::unique_ptr<GeneralAdapter>(new GeneralAdapter(config, this));
+    } 
+    else if (config.engine == "gemini") 
+    {
+        adapter = std::unique_ptr<GeminiAdapter>(new GeminiAdapter(config, this));
+    } 
+    else if (config.engine == "glm") 
+    {
+        adapter = std::unique_ptr<GLMAdapter>(new GLMAdapter(config, this));
+    } 
+    else if (config.engine == "doubao") 
+    {
+        adapter = std::unique_ptr<DoubaoAdapter>(new DoubaoAdapter(config, this));
+    }
+
+    if (!adapter) {
+        QApplication::restoreOverrideCursor();
+        m_testApiBtn->setEnabled(true);
+        m_testApiBtn->setText("测试");
+        QMessageBox::warning(this, "测试失败", "当前引擎暂不支持一键测试，请在主页执行一次识别验证。");
+        return;
+    }
+
+    QString error;
+    QString snippet;
+    bool success = false;
+
+    if (adapter->initialize()) {
+        // 纯文本测试，不传图片
+        OCRResult result = adapter->recognize(QImage(), prompt);
+        success = result.success && !result.fullText.trimmed().isEmpty();
+        snippet = result.fullText.left(200).trimmed();
+        error = result.errorMessage;
+    } else {
+        error = "初始化失败，请检查 API Key / URL 配置";
+    }
+
+    QApplication::restoreOverrideCursor();
+    m_testApiBtn->setEnabled(true);
+    m_testApiBtn->setText("测试");
+
+    if (success) {
+        if (snippet.isEmpty()) snippet = "已成功调用接口（返回内容为空）";
+        QMessageBox::information(this, "测试成功", QString("接口连通，返回内容示例：\n%1").arg(snippet));
+    } else {
+        if (error.isEmpty()) error = "未收到有效响应";
+        QMessageBox::warning(this, "测试失败", error);
+    }
 }
 
 PromptTemplateDialog::PromptTemplateDialog(const QString& name, const QString& content, const QString& type, const QString& category, QWidget* parent)
