@@ -485,7 +485,7 @@
             "params": {
                 "api_key": "",
                 "deploy_type": "local",
-                "api_host": "http://192.168.4.22:9008",
+                "api_host": "http://192.168.4.22:9006",
                 "model_name": "Qwen3-VL-8B-Instruct",
                 "temperature": "0.1"
             },
@@ -685,6 +685,12 @@
             "name": "结构化输出JSON",
             "type": "整理",
             "content": "请识别图片内容并以 JSON 格式输出，包含所有文字。"
+        },
+        {
+            "category": "整理",
+            "name": "公式转为LaTeX格式",
+            "type": "整理",
+            "content": "请将图片中的表达式转换为LaTeX格式，用$公式$表示，其余内容原样输出。例如：$Cl_{2} +2OH^{-} =ClO^{-} +Cl^{-} +H_{2} O$。"
         },
         {
             "category": "整理",
