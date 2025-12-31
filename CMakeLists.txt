@@ -17,6 +17,30 @@ else()
     set(QT_PACKAGE Qt5)
 endif()
 
+if(MINGW)
+    # 先清掉之前缓存的 RC 设置，避免拿到 32 位 windres
+    unset(CMAKE_RC_COMPILER CACHE)
+    unset(CMAKE_RC_FLAGS CACHE)
+
+    # 检查 Qt 路径与编译器位宽是否一致
+    set(_qt_core_dir "")
+    if(Qt6_FOUND)
+        set(_qt_core_dir "${Qt6Core_DIR}")
+    else()
+        set(_qt_core_dir "${Qt5Core_DIR}")
+    endif()
+    get_filename_component(_tool_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    find_program(_windres_exe NAMES windres x86_64-w64-mingw32-windres i686-w64-mingw32-windres HINTS "${_tool_bin}")
+    if(_windres_exe)
+        set(CMAKE_RC_COMPILER "${_windres_exe}" CACHE FILEPATH "Resource compiler" FORCE)
+        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+            set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} --target=pe-x86-64")
+        else()
+            set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} --target=pe-i386")
+        endif()
+    endif()
+endif()
+
 # Windows 图标资源
 if(WIN32)
     set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_CURRENT_SOURCE_DIR}/app.rc")
@@ -116,11 +140,19 @@ set(ALL_HEADERS
 )
 
 # 创建可执行文件
-add_executable(${PROJECT_NAME}
+# 让 Qt GUI 程序不弹出控制台，需把可执行目标设为 GUI 子系统
+add_executable(${PROJECT_NAME} WIN32
     ${ALL_SOURCES}
     ${ALL_HEADERS}
     $<$<PLATFORM_ID:Windows>:${APP_ICON_RESOURCE_WINDOWS}>
 )
+
+# Debug 模式，弹出控制台
+# add_executable(${PROJECT_NAME}
+#     ${ALL_SOURCES}
+#     ${ALL_HEADERS}
+#     $<$<PLATFORM_ID:Windows>:${APP_ICON_RESOURCE_WINDOWS}>
+# )
 
 # 链接 Qt 库
 target_link_libraries(${PROJECT_NAME} PRIVATE 
