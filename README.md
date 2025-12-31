@@ -192,7 +192,7 @@ cmake --build . --config Release
 
 ## 技术架构：为开发者而生
 
-[加入我们：参与教程-技术架构：为开发者而生.md](https://github.com/xstongxue/XS-VLM-OCR/blob/main/d:/QC_Development/XS-VLM-OCR/docs/参与教程-技术架构：为开发者而生.md)
+[加入我们：参与教程-技术架构：为开发者而生.md](https://github.com/xstongxue/XS-VLM-OCR/blob/main/docs/%E5%8F%82%E4%B8%8E%E6%95%99%E7%A8%8B-%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84%EF%BC%9A%E4%B8%BA%E5%BC%80%E5%8F%91%E8%80%85%E8%80%8C%E7%94%9F.md)
 
 ## 功能规划
 
