@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.10)
 project(XS-VLM-OCR LANGUAGES CXX)
 
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)  
+set(CMAKE_AUTOUIC ON)  # 自动生成 UI 文件, 用于 UI 设计器
+set(CMAKE_AUTOMOC ON)  # 自动生成 MOC 文件, 用于信号槽机制
+set(CMAKE_AUTORCC ON)  # 自动生成 RC 文件, 用于将资源文件转为二进制文件
+set(CMAKE_CXX_STANDARD 11)  
+set(CMAKE_CXX_STANDARD_REQUIRED ON)  
 
 # Qt 搜索：优先 Qt6，失败再退回 Qt5；可在命令行通过 CMAKE_PREFIX_PATH 指定安装路径
 find_package(Qt6 COMPONENTS Widgets Network Concurrent QUIET)
@@ -60,6 +60,7 @@ set(CORE_HEADERS
     src/core/OCRResult.h
     src/core/ModelAdapter.h
     src/core/OCRPipeline.h
+    src/core/HistoryItem.h
 )
 
 set(ADAPTER_SOURCES
@@ -87,11 +88,13 @@ set(ADAPTER_HEADERS
 set(MANAGER_SOURCES
     src/managers/ModelManager.cpp
     src/managers/ClipboardManager.cpp
+    src/managers/HistoryManager.cpp
 )
 
 set(MANAGER_HEADERS
     src/managers/ModelManager.h
     src/managers/ClipboardManager.h
+    src/managers/HistoryManager.h
 )
 
 set(UTILS_SOURCES

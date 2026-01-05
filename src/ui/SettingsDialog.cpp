@@ -473,6 +473,9 @@ void SettingsDialog::setupGeneralTab()
     // 历史记录
     QGroupBox* historyGroup = new QGroupBox("历史记录");
     QFormLayout* historyLayout = new QFormLayout(historyGroup);
+
+    m_persistenceCheck = new QCheckBox("持久化历史记录 (保存到磁盘)");
+    historyLayout->addRow(m_persistenceCheck);
     
     m_maxHistorySpin = new QSpinBox();
     m_maxHistorySpin->setRange(10, 1000);
@@ -599,6 +602,7 @@ void SettingsDialog::loadSettings()
     m_autoCopyCheck->setChecked(m_configManager->getSetting("auto_copy_result", true).toBool());
     m_autoSaveCheck->setChecked(m_configManager->getSetting("auto_save", false).toBool());
     m_autoRecognizeAfterScreenshot->setChecked(m_configManager->getSetting("auto_recognize_after_screenshot", false).toBool());
+    m_persistenceCheck->setChecked(m_configManager->getSetting("history_persistence", false).toBool());
     m_maxHistorySpin->setValue(m_configManager->getSetting("max_history", 50).toInt());
     m_saveFolderEdit->setText(m_configManager->getSetting("save_folder", "./ocr_results").toString());
     

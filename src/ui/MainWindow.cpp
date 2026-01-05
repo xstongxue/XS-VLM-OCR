@@ -1,4 +1,4 @@
-﻿#include "MainWindow.h"
+#include "MainWindow.h"
 #include "SettingsDialog.h"
 #include "../adapters/TesseractAdapter.h"
 #include "../adapters/QwenAdapter.h"
@@ -107,6 +107,7 @@ MainWindow::~MainWindow()
     delete m_pipeline;
     delete m_clipboardManager;
     delete m_configManager;
+    delete m_historyManager;
 }
 
 QWidget* MainWindow::createCard(const QString& title, QWidget* content)
@@ -1079,6 +1080,25 @@ void MainWindow::initializeServices()
     m_pipeline = new OCRPipeline(this);
     m_clipboardManager = new ClipboardManager(this);
     m_configManager = new ConfigManager(this);
+    m_historyManager = new HistoryManager(this);
+    
+    connect(m_historyManager, &HistoryManager::historyChanged, [this]() {
+        // 刷新历史记录列表
+        m_historyList->clear();
+        const auto& history = m_historyManager->getHistory();
+        for (const auto& item : history) {
+            QString timeStr = item.timestamp.toString("MM-dd HH:mm");
+            QString preview = item.result.fullText.left(20).replace("\n", " ");
+            if (preview.isEmpty()) preview = "[无文字]";
+            else if (item.result.fullText.length() > 20) preview += "...";
+            
+            QListWidgetItem* listItem = new QListWidgetItem(QString("%1 - %2").arg(timeStr, preview));
+            m_historyList->addItem(listItem);
+        }
+    });
+
+    // 加载历史记录
+    m_historyManager->loadHistory();
 
     qDebug() << "=== Initializing XS-VLM-OCR Services ===";
 
@@ -1119,6 +1139,15 @@ void MainWindow::initializeServices()
     else
     {
         qDebug() << "MainWindow: 配置文件和模板都不存在，将使用内置默认配置";
+    }
+
+    // 应用历史记录持久化设置
+    bool persistence = m_configManager->getSetting("history_persistence", false).toBool();
+    m_historyManager->setPersistenceEnabled(persistence);
+    
+    // 如果启用持久化，则加载历史记录
+    if (persistence) {
+        m_historyManager->loadHistory();
     }
 
     if (configLoaded)
@@ -1967,7 +1996,7 @@ void MainWindow::onRecognizeClicked()
 
 void MainWindow::onClearHistoryClicked()
 {
-    if (m_history.isEmpty())
+    if (m_historyManager->getHistory().isEmpty())
     {
         return;
     }
@@ -1980,8 +2009,7 @@ void MainWindow::onClearHistoryClicked()
 
     if (reply == QMessageBox::Yes)
     {
-        m_history.clear();
-        m_historyList->clear();
+        m_historyManager->clearHistory();
         m_currentHistoryIndex = -1;
         showStatusMessage("历史记录已清空");
     }
@@ -2291,37 +2319,7 @@ void MainWindow::onRecognitionFailed(const QString &error, const QImage &image, 
 
 void MainWindow::addHistoryItem(const HistoryItem &item)
 {
-    m_history.append(item);
-
-    QString sourceText;
-    switch (item.source)
-    {
-    case SubmitSource::Upload:
-        sourceText = "📁";
-        break;
-    case SubmitSource::Paste:
-        sourceText = "📋";
-        break;
-    case SubmitSource::Shortcut:
-        sourceText = "✂️";
-        break;
-    case SubmitSource::DragDrop:
-        sourceText = "🎯";
-        break;
-    }
-
-    QString itemText = QString("%1 %2 - %3字符 [%4]")
-                           .arg(sourceText)
-                           .arg(item.timestamp.toString("MM-dd HH:mm:ss"))
-                           .arg(item.result.fullText.length())
-                           .arg(item.result.modelName);
-
-    QListWidgetItem *listItem = new QListWidgetItem(itemText);
-    listItem->setData(Qt::UserRole, m_history.size() - 1);
-    m_historyList->insertItem(0, listItem);
-
-    // 自动选中最新项
-    m_historyList->setCurrentItem(listItem);
+    m_historyManager->addHistoryItem(item);
 }
 
 void MainWindow::updateResultDisplay(const HistoryItem &item)
@@ -2350,11 +2348,12 @@ void MainWindow::updateResultDisplay(const HistoryItem &item)
 
 void MainWindow::onHistoryItemClicked(QListWidgetItem *item)
 {
-    int index = item->data(Qt::UserRole).toInt();
-    if (index >= 0 && index < m_history.size())
+    int index = m_historyList->row(item);
+    const auto& history = m_historyManager->getHistory();
+    if (index >= 0 && index < history.size())
     {
         m_currentHistoryIndex = index;
-        updateResultDisplay(m_history[index]);
+        updateResultDisplay(history[index]);
         // 切换回首页以显示预览与结果区域
         switchToPage("home");
         showStatusMessage("已加载历史记录");
@@ -2413,6 +2412,14 @@ void MainWindow::onSettingsChanged()
         m_configManager->loadConfig(configPath);
     }
     
+    // 应用历史记录持久化设置
+    bool persistence = m_configManager->getSetting("history_persistence", false).toBool();
+    m_historyManager->setPersistenceEnabled(persistence);
+
+    // 应用最大历史记录数量设置
+    int maxHistory = m_configManager->getSetting("max_history", 50).toInt();
+    m_historyManager->setMaxHistory(maxHistory);
+
     // 清空现有模型
     QList<ModelAdapter*> oldModels = m_modelManager->getAllModels();
     for (ModelAdapter* adapter : oldModels) {

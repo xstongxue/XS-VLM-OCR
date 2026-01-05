@@ -103,6 +103,7 @@ private:
     QCheckBox* m_autoCopyCheck;
     QCheckBox* m_autoSaveCheck;
     QCheckBox* m_autoRecognizeAfterScreenshot;
+    QCheckBox* m_persistenceCheck;
     QSpinBox* m_maxHistorySpin;
     QLineEdit* m_saveFolderEdit;
 

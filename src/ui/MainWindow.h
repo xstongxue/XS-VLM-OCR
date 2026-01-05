@@ -15,21 +15,15 @@
 #include <QShortcut>
 #include <QCloseEvent>
 #include "../core/OCRPipeline.h"
+#include "../core/HistoryItem.h"
 #include "../managers/ModelManager.h"
 #include "../managers/ClipboardManager.h"
+#include "../managers/HistoryManager.h"
 #include "../utils/ConfigManager.h"
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
-
-// 识别历史记录项
-struct HistoryItem {
-    QImage image;
-    OCRResult result;
-    SubmitSource source;
-    QDateTime timestamp;
-};
 
 // 主窗口
 class MainWindow : public QMainWindow {
@@ -175,6 +169,7 @@ private:
     OCRPipeline* m_pipeline;
     ClipboardManager* m_clipboardManager;
     ConfigManager* m_configManager;
+    HistoryManager* m_historyManager;
     // 快捷键
     QShortcut* m_screenshotShortcut;
     QShortcut* m_recognizeShortcut;
@@ -187,7 +182,6 @@ private:
 #endif
     
     // 数据
-    QVector<HistoryItem> m_history;
     struct BatchItem {
         QString path;
         QImage image;
