@@ -211,4 +211,7 @@ private:
 
     // 托盘提示是否已展示（避免重复弹出）
     bool m_trayNotified;
+    
+    // 防止设置变更处理函数重复执行
+    bool m_settingsChanging;
 };

@@ -1,21 +1,19 @@
 #pragma once
 #include <QObject>
 #include <QVector>
+#include <QSqlDatabase>
 #include "../core/HistoryItem.h"
 
 // 历史记录管理器
 class HistoryManager: public QObject {
-    Q_OBJECT  // 允许信号槽机制
+    Q_OBJECT
 
 public:
     explicit HistoryManager(QObject* parent = nullptr);
     ~HistoryManager() override;
 
-    // 加载历史记录
+    // 加载历史记录 (初始化数据库)
     void loadHistory();
-    
-    // 保存历史记录
-    void saveHistory();
     
     // 添加历史记录
     void addHistoryItem(const HistoryItem& item);
@@ -41,12 +39,14 @@ signals:
     void historyChanged();
 
 private:
-    QVector<HistoryItem> m_history;
+    QVector<HistoryItem> m_history; // 内存缓存，用于 UI 显示
     QString m_historyDir;
     QString m_imagesDir;
-    QString m_historyFile;
+    
     bool m_persistenceEnabled = false;
-    int m_maxHistory;          // 最大历史记录数量(通过设置控制)
+    int m_maxHistory;
 
-    void ensureDirectories();  // 确保文件夹存在
+    void ensureDirectories();
+    QSqlDatabase getDatabase(); // 获取数据库连接
+    void enforceMaxHistory();   // 强制执行数量限制
 };

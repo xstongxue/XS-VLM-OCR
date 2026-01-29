@@ -65,7 +65,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_currentHistoryIndex(-1), m_recognizing(false), 
       m_screenshotShortcut(nullptr), m_recognizeShortcut(nullptr), 
       m_sidebarCollapsed(false), m_mainSplitter(nullptr),
-      m_trayNotified(false)
+      m_trayNotified(false), m_settingsChanging(false)
 {
 #ifdef _WIN32
     m_screenshotHotKeyId = 0;
@@ -721,9 +721,6 @@ void MainWindow::initializeServices()
         }
     });
 
-    // 加载历史记录
-    m_historyManager->loadHistory();
-
     qDebug() << "=== Initializing XS-VLM-OCR Services ===";
 
     // 尝试从配置文件加载模型
@@ -765,14 +762,15 @@ void MainWindow::initializeServices()
         qDebug() << "MainWindow: 配置文件和模板都不存在，将使用内置默认配置";
     }
 
-    // 应用历史记录持久化设置
+    // 应用历史记录相关设置
+    int maxHistory = m_configManager->getSetting("max_history", 50).toInt();
+    m_historyManager->setMaxHistory(maxHistory);
+
     bool persistence = m_configManager->getSetting("history_persistence", false).toBool();
     m_historyManager->setPersistenceEnabled(persistence);
-    
-    // 如果启用持久化，则加载历史记录
-    if (persistence) {
-        m_historyManager->loadHistory();
-    }
+
+    // 每次启动都从数据库加载（若启用了持久化则会加载已保存记录）
+    m_historyManager->loadHistory();
 
     if (configLoaded)
     {
@@ -1958,149 +1956,217 @@ void MainWindow::onSettingsClicked()
     disableShortcuts();
 
     SettingsDialog dialog(m_configManager, this);
-    connect(&dialog, &SettingsDialog::settingsChanged, this, &MainWindow::onSettingsChanged);
+    bool settingsWereChanged = false;
+    
+    // 连接信号，标记设置是否被更改
+    connect(&dialog, &SettingsDialog::settingsChanged, this, [&settingsWereChanged]() {
+        settingsWereChanged = true;
+    });
     
     dialog.exec();
 
     // 关闭设置后重新注册快捷键
     setupShortcuts();
+    
+    // 如果设置被更改，延迟处理（确保对话框完全关闭后再处理）
+    if (settingsWereChanged) {
+        QTimer::singleShot(100, this, &MainWindow::onSettingsChanged);
+    }
 }
 
 // onPromptTemplateSelected 函数已移除，改为在列表项点击时直接处理
 
 void MainWindow::onSettingsChanged()
 {
+    // 防止重复执行：如果正在处理设置变更，直接返回
+    if (m_settingsChanging) {
+        qWarning() << "设置变更处理正在进行中，忽略重复调用";
+        return;
+    }
+    
+    // 安全检查：确保关键对象存在
+    if (!m_configManager || !m_modelManager || !m_historyManager || !m_pipeline) {
+        qCritical() << "设置变更处理失败：关键对象未初始化";
+        return;
+    }
+    
+    m_settingsChanging = true;
     qDebug() << "设置已更改，重新加载配置";
     
-    // 保存当前选择的模型ID，以便重新加载后恢复
-    QString currentModelId;
-    if (ModelAdapter* currentActive = m_modelManager->getActiveModel()) {
-        currentModelId = currentActive->config().id;
-        qDebug() << "设置已更改 - 保存当前模型ID:" << currentModelId << "(" << currentActive->config().displayName << ")";
-    } else {
-        qDebug() << "设置已更改 - 当前没有激活的模型";
-    }
-    
-    // 重新加载模型配置
-    QString configPath = m_configManager->getConfigPath();
-    if (!configPath.isEmpty()) {
-        m_configManager->loadConfig(configPath);
-    }
-    
-    // 应用历史记录持久化设置
-    bool persistence = m_configManager->getSetting("history_persistence", false).toBool();
-    m_historyManager->setPersistenceEnabled(persistence);
-
-    // 应用最大历史记录数量设置
-    int maxHistory = m_configManager->getSetting("max_history", 50).toInt();
-    m_historyManager->setMaxHistory(maxHistory);
-
-    // 清空现有模型
-    QList<ModelAdapter*> oldModels = m_modelManager->getAllModels();
-    for (ModelAdapter* adapter : oldModels) {
-        m_modelManager->removeModel(adapter->config().id);
-    }
-    
-    // 临时保存要恢复的模型ID（在添加模型前，因为addModel会自动激活第一个模型）
-    QString modelIdToRestore = currentModelId;
-    
-    // 重新创建模型（注意：addModel会自动将第一个模型设为激活）
-    QList<ModelConfig> configs = m_configManager->getModelConfigs();
-    for (const ModelConfig& config : configs) {
-        if (!config.enabled) {
-            continue;
-        }
-        
-        ModelAdapter* adapter = nullptr;
-        if (config.engine == "tesseract") {
-            adapter = new TesseractAdapter(config, this);
-        } else if (config.engine == "qwen") {
-            adapter = new QwenAdapter(config, this);
-        } else if (config.engine == "custom") {
-            adapter = new CustomAdapter(config, this);
-        } else if (config.engine == "gen") {
-            adapter = new GeneralAdapter(config, this);
-        } else if (config.engine == "gemini") {
-            adapter = new GeminiAdapter(config, this);
-        } else if (config.engine == "glm") {
-            adapter = new GLMAdapter(config, this);
-        } else if (config.engine == "paddle") {
-            adapter = new PaddleAdapter(config, this);
-        } else if (config.engine == "doubao") {
-            adapter = new DoubaoAdapter(config, this);
-        }
-        
-        if (adapter) {
-            m_modelManager->addModel(adapter);
-        }
-    }
-    
-    // 重新初始化模型
-    m_modelManager->initializeAll();
-    
-    // 尝试恢复之前选择的模型，如果不存在则保持当前激活的模型（第一个模型）
-    if (!modelIdToRestore.isEmpty()) {
-        ModelAdapter* modelToRestore = m_modelManager->getModel(modelIdToRestore);
-        if (modelToRestore) {
-            // 如果之前的模型仍然存在，恢复它
-            qDebug() << "尝试恢复之前选择的模型:" << modelIdToRestore << "(" << modelToRestore->config().displayName << ")";
-            m_modelManager->setActiveModel(modelIdToRestore);
-            qDebug() << "成功恢复之前选择的模型:" << modelIdToRestore;
+    try {
+        // 保存当前选择的模型ID，以便重新加载后恢复
+        QString currentModelId;
+        if (ModelAdapter* currentActive = m_modelManager->getActiveModel()) {
+            currentModelId = currentActive->config().id;
+            qDebug() << "设置已更改 - 保存当前模型ID:" << currentModelId << "(" << currentActive->config().displayName << ")";
         } else {
-            // 如果之前的模型不存在了，保持当前激活的模型（通常是第一个）
+            qDebug() << "设置已更改 - 当前没有激活的模型";
+        }
+        
+        // 重新加载模型配置
+        QString configPath = m_configManager->getConfigPath();
+        if (!configPath.isEmpty()) {
+            m_configManager->loadConfig(configPath);
+        }
+        
+        // 应用历史记录持久化设置
+        bool persistence = m_configManager->getSetting("history_persistence", false).toBool();
+        if (m_historyManager) {
+            m_historyManager->setPersistenceEnabled(persistence);
+        }
+
+        // 应用最大历史记录数量设置
+        int maxHistory = m_configManager->getSetting("max_history", 50).toInt();
+        if (m_historyManager) {
+            m_historyManager->setMaxHistory(maxHistory);
+        }
+
+        // 清空现有模型（安全地删除）
+        if (m_modelManager) {
+            QList<ModelAdapter*> oldModels = m_modelManager->getAllModels();
+            for (ModelAdapter* adapter : oldModels) {
+                if (adapter) {
+                    QString modelId = adapter->config().id;
+                    m_modelManager->removeModel(modelId);
+                }
+            }
+        }
+    
+        // 临时保存要恢复的模型ID（在添加模型前，因为addModel会自动激活第一个模型）
+        QString modelIdToRestore = currentModelId;
+        
+        // 重新创建模型（注意：addModel会自动将第一个模型设为激活）
+        if (!m_modelManager) {
+            qCritical() << "ModelManager 未初始化，无法重新创建模型";
+            m_settingsChanging = false;
+            return;
+        }
+        
+        QList<ModelConfig> configs = m_configManager->getModelConfigs();
+        for (const ModelConfig& config : configs) {
+            if (!config.enabled) {
+                continue;
+            }
+            
+            ModelAdapter* adapter = nullptr;
+            try {
+                if (config.engine == "tesseract") {
+                    adapter = new TesseractAdapter(config, this);
+                } else if (config.engine == "qwen") {
+                    adapter = new QwenAdapter(config, this);
+                } else if (config.engine == "custom") {
+                    adapter = new CustomAdapter(config, this);
+                } else if (config.engine == "gen") {
+                    adapter = new GeneralAdapter(config, this);
+                } else if (config.engine == "gemini") {
+                    adapter = new GeminiAdapter(config, this);
+                } else if (config.engine == "glm") {
+                    adapter = new GLMAdapter(config, this);
+                } else if (config.engine == "paddle") {
+                    adapter = new PaddleAdapter(config, this);
+                } else if (config.engine == "doubao") {
+                    adapter = new DoubaoAdapter(config, this);
+                }
+                
+                if (adapter && m_modelManager) {
+                    m_modelManager->addModel(adapter);
+                }
+            } catch (...) {
+                qWarning() << "创建模型适配器失败:" << config.id;
+                if (adapter) {
+                    delete adapter;
+                    adapter = nullptr;
+                }
+            }
+        }
+        
+        // 重新初始化模型
+        if (m_modelManager) {
+            m_modelManager->initializeAll();
+        }
+        
+        // 尝试恢复之前选择的模型，如果不存在则保持当前激活的模型（第一个模型）
+        if (!modelIdToRestore.isEmpty() && m_modelManager) {
+            ModelAdapter* modelToRestore = m_modelManager->getModel(modelIdToRestore);
+            if (modelToRestore) {
+                // 如果之前的模型仍然存在，恢复它
+                qDebug() << "尝试恢复之前选择的模型:" << modelIdToRestore << "(" << modelToRestore->config().displayName << ")";
+                m_modelManager->setActiveModel(modelIdToRestore);
+                qDebug() << "成功恢复之前选择的模型:" << modelIdToRestore;
+            } else {
+                // 如果之前的模型不存在了，保持当前激活的模型（通常是第一个）
+                ModelAdapter* currentActive = m_modelManager->getActiveModel();
+                if (currentActive) {
+                    qDebug() << "之前的模型不存在(" << modelIdToRestore << ")，保持当前激活模型:" << currentActive->config().id << "(" << currentActive->config().displayName << ")";
+                } else {
+                    qWarning() << "之前的模型不存在，且当前没有激活的模型";
+                }
+            }
+        } else if (m_modelManager) {
+            // 如果没有保存的模型ID，保持当前激活的模型（通常是第一个）
             ModelAdapter* currentActive = m_modelManager->getActiveModel();
             if (currentActive) {
-                qDebug() << "之前的模型不存在(" << modelIdToRestore << ")，保持当前激活模型:" << currentActive->config().id << "(" << currentActive->config().displayName << ")";
-            } else {
-                qWarning() << "之前的模型不存在，且当前没有激活的模型";
+                qDebug() << "没有保存的模型ID，保持当前激活模型:" << currentActive->config().id << "(" << currentActive->config().displayName << ")";
             }
         }
-    } else {
-        // 如果没有保存的模型ID，保持当前激活的模型（通常是第一个）
-        ModelAdapter* currentActive = m_modelManager->getActiveModel();
-        if (currentActive) {
-            qDebug() << "没有保存的模型ID，保持当前激活模型:" << currentActive->config().id << "(" << currentActive->config().displayName << ")";
-        }
-    }
-    
-    // 更新 UI（临时断开信号连接，避免触发模型切换）
-    disconnect(m_modelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-               this, &MainWindow::onModelChanged);
-    
-    m_modelComboBox->clear();
-    for (ModelAdapter* adapter : m_modelManager->getAllModels()) {
-        QString itemText = adapter->config().displayName;
-        if (!adapter->isInitialized()) {
-            itemText += " [未初始化]";
-        }
-        m_modelComboBox->addItem(itemText, adapter->config().id);
-        int idx = m_modelComboBox->count() - 1;
-        m_modelComboBox->setItemData(idx, itemText, Qt::ToolTipRole); // 悬浮显示完整信息
-    }
-    
-    // 同步当前激活模型到下拉框与 pipeline
-    if (ModelAdapter* active = m_modelManager->getActiveModel()) {
-        m_pipeline->setCurrentAdapter(active);
-        const QString activeId = active->config().id;
-        for (int i = 0; i < m_modelComboBox->count(); ++i) {
-            if (m_modelComboBox->itemData(i).toString() == activeId) {
-                m_modelComboBox->setCurrentIndex(i);
-                break;
+        
+        // 更新 UI（临时断开信号连接，避免触发模型切换）
+        if (m_modelComboBox) {
+            disconnect(m_modelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                       this, &MainWindow::onModelChanged);
+            
+            m_modelComboBox->clear();
+            if (m_modelManager) {
+                for (ModelAdapter* adapter : m_modelManager->getAllModels()) {
+                    if (adapter) {
+                        QString itemText = adapter->config().displayName;
+                        if (!adapter->isInitialized()) {
+                            itemText += " [未初始化]";
+                        }
+                        m_modelComboBox->addItem(itemText, adapter->config().id);
+                        int idx = m_modelComboBox->count() - 1;
+                        m_modelComboBox->setItemData(idx, itemText, Qt::ToolTipRole); // 悬浮显示完整信息
+                    }
+                }
             }
+            
+            // 同步当前激活模型到下拉框与 pipeline
+            if (m_modelManager && m_pipeline) {
+                ModelAdapter* active = m_modelManager->getActiveModel();
+                if (active) {
+                    m_pipeline->setCurrentAdapter(active);
+                    const QString activeId = active->config().id;
+                    for (int i = 0; i < m_modelComboBox->count(); ++i) {
+                        if (m_modelComboBox->itemData(i).toString() == activeId) {
+                            m_modelComboBox->setCurrentIndex(i);
+                            break;
+                        }
+                    }
+                    QString typeText = active->config().type == "local" ? "离线" : "线上";
+                    if (m_statusLabel) {
+                        m_statusLabel->setText(QString("就绪 - %1 (%2)").arg(active->config().displayName, typeText));
+                    }
+                }
+            }
+            
+            // 重新连接信号
+            connect(m_modelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                    this, &MainWindow::onModelChanged);
         }
-        QString typeText = active->config().type == "local" ? "离线" : "线上";
-        m_statusLabel->setText(QString("就绪 - %1 (%2)").arg(active->config().displayName, typeText));
+        
+        // 重新加载提示词模板选项卡
+        reloadPromptTabs();
+        
+        // 重新注册快捷键
+        setupShortcuts();
+        
+    } catch (...) {
+        qCritical() << "设置变更处理过程中发生异常";
     }
     
-    // 重新连接信号
-    connect(m_modelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &MainWindow::onModelChanged);
-    
-    // 重新加载提示词模板选项卡
-    reloadPromptTabs();
-    
-    // 重新注册快捷键
-    setupShortcuts();
+    // 重置标志，允许下次设置变更
+    m_settingsChanging = false;
+    qDebug() << "设置变更处理完成";
 }
 
 void MainWindow::onSidebarCollapseChanged(bool collapsed)
