@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QShortcut>
 #include <QCloseEvent>
+#include "SidebarWidget.h"
 #include "../core/OCRPipeline.h"
 #include "../core/HistoryItem.h"
 #include "../managers/ModelManager.h"
@@ -25,9 +26,12 @@
 #include <windows.h>
 #endif
 
+class ThemeManager;
+
 // 主窗口
 class MainWindow : public QMainWindow {
     Q_OBJECT
+    friend class ThemeManager;
     
 public:
     explicit MainWindow(QWidget* parent = nullptr);
@@ -75,7 +79,7 @@ private slots:
     // 主题切换
     void onThemeToggleClicked();
     // 侧边栏折叠/展开
-    void onSidebarToggleClicked();
+    void onSidebarCollapseChanged(bool collapsed);
     // 重新加载提示词选项卡
     void reloadPromptTabs();
     // 快捷键
@@ -118,7 +122,7 @@ private:
     QWidget* m_centralWidget;
     QWidget* m_mainContainer;
     // 左侧：导航栏
-    QWidget* m_sidebarPanel;
+    SidebarWidget* m_sidebarPanel;
     QPushButton* m_sidebarToggleBtn;  // 折叠/展开按钮
     QPushButton* m_navHomeBtn;
     QPushButton* m_navHistoryBtn;

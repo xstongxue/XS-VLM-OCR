@@ -99,20 +99,26 @@ set(MANAGER_HEADERS
 
 set(UTILS_SOURCES
     src/utils/ConfigManager.cpp
+    src/utils/ThemeManager.cpp
 )
 
 set(UTILS_HEADERS
     src/utils/ConfigManager.h
+    src/utils/ThemeManager.h
 )
 
 set(UI_SOURCES
     src/ui/MainWindow.cpp
     src/ui/SettingsDialog.cpp
+    src/ui/SidebarWidget.cpp
+    src/ui/ScreenshotSelector.cpp
 )
 
 set(UI_HEADERS
     src/ui/MainWindow.h
     src/ui/SettingsDialog.h
+    src/ui/SidebarWidget.h
+    src/ui/ScreenshotSelector.h
 )
 
 set(UI_RESOURCES
