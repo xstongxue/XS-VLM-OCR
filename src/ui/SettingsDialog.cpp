@@ -171,7 +171,6 @@ void SettingsDialog::setupUI()
     
     m_saveBtn = new QPushButton("保存", this);
     m_cancelBtn = new QPushButton("取消", this);
-    m_applyBtn = new QPushButton("应用", this);
     
     // 底部按钮样式（深色按钮）
     m_saveBtn->setStyleSheet(
@@ -191,18 +190,15 @@ void SettingsDialog::setupUI()
         "  background: #666666; "
         "}"
     );
-    m_applyBtn->setStyleSheet(m_saveBtn->styleSheet());
     
     buttonLayout->addWidget(m_saveBtn);
     buttonLayout->addWidget(m_cancelBtn);
-    buttonLayout->addWidget(m_applyBtn);
     
     mainLayout->addLayout(buttonLayout);
     
     // 连接信号
     connect(m_saveBtn, &QPushButton::clicked, this, &SettingsDialog::onSaveClicked);
     connect(m_cancelBtn, &QPushButton::clicked, this, &SettingsDialog::onCancelClicked);
-    connect(m_applyBtn, &QPushButton::clicked, this, &SettingsDialog::onApplyClicked);
 }
 
 void SettingsDialog::setupModelTab()
@@ -461,9 +457,6 @@ void SettingsDialog::setupGeneralTab()
     m_autoCopyCheck->setChecked(true);
     featureLayout->addWidget(m_autoCopyCheck);
     
-    m_autoSaveCheck = new QCheckBox("自动保存识别结果");
-    featureLayout->addWidget(m_autoSaveCheck);
-    
     m_autoRecognizeAfterScreenshot = new QCheckBox("截图后自动识别");
     m_autoRecognizeAfterScreenshot->setChecked(true);
     featureLayout->addWidget(m_autoRecognizeAfterScreenshot);
@@ -484,30 +477,6 @@ void SettingsDialog::setupGeneralTab()
     historyLayout->addRow("最大历史记录数:", m_maxHistorySpin);
     
     layout->addWidget(historyGroup);
-    
-    // 保存位置
-    QGroupBox* saveGroup = new QGroupBox("保存设置");
-    QHBoxLayout* saveLayout = new QHBoxLayout(saveGroup);
-    
-    m_saveFolderEdit = new QLineEdit();
-    m_saveFolderEdit->setPlaceholderText("选择保存文件夹...");
-    QPushButton* browseBtn = new QPushButton("浏览...");
-    QIcon browseIcon(":/res/10.png");
-    browseBtn->setIcon(browseIcon);
-    browseBtn->setIconSize(QSize(16, 16));
-    
-    saveLayout->addWidget(new QLabel("保存文件夹:"));
-    saveLayout->addWidget(m_saveFolderEdit);
-    saveLayout->addWidget(browseBtn);
-    
-    connect(browseBtn, &QPushButton::clicked, this, [this]() {
-        QString folder = QFileDialog::getExistingDirectory(this, "选择保存文件夹");
-        if (!folder.isEmpty()) {
-            m_saveFolderEdit->setText(folder);
-        }
-    });
-    
-    layout->addWidget(saveGroup);
     layout->addStretch();
     
     QIcon generalTabIcon(":/res/11.png");
@@ -600,11 +569,9 @@ void SettingsDialog::loadSettings()
     
     // 加载通用设置
     m_autoCopyCheck->setChecked(m_configManager->getSetting("auto_copy_result", true).toBool());
-    m_autoSaveCheck->setChecked(m_configManager->getSetting("auto_save", false).toBool());
     m_autoRecognizeAfterScreenshot->setChecked(m_configManager->getSetting("auto_recognize_after_screenshot", false).toBool());
     m_persistenceCheck->setChecked(m_configManager->getSetting("history_persistence", false).toBool());
     m_maxHistorySpin->setValue(m_configManager->getSetting("max_history", 50).toInt());
-    m_saveFolderEdit->setText(m_configManager->getSetting("save_folder", "./ocr_results").toString());
     
     // 加载快捷键
     m_screenshotShortcut->setKeySequence(QKeySequence(m_configManager->getSetting("shortcut_screenshot", "Ctrl+R").toString()));
@@ -612,7 +579,7 @@ void SettingsDialog::loadSettings()
     m_recognizeShortcut->setKeySequence(QKeySequence(m_configManager->getSetting("shortcut_recognize", "Ctrl+E").toString()));
 }
 
-void SettingsDialog::saveSettings()
+bool SettingsDialog::saveSettings()
 {
     qDebug() << "SettingsDialog: 保存设置...";
     
@@ -624,18 +591,18 @@ void SettingsDialog::saveSettings()
     if (screenshotKey.isEmpty() || recognizeKey.isEmpty())
     {
         QMessageBox::warning(this, "快捷键无效", "截图或开始识别的快捷键不能为空，请重新设置。");
-        return;
+        return false;
     }
     if (screenshotKey == recognizeKey)
     {
         QMessageBox::warning(this, "快捷键冲突", "截图和开始识别快捷键不能相同，请重新设置。");
-        return;
+        return false;
     }
     // 避免与粘贴快捷键冲突
     if (!pasteKey.isEmpty() && (pasteKey == screenshotKey || pasteKey == recognizeKey))
     {
         QMessageBox::warning(this, "快捷键冲突", "粘贴快捷键与其它快捷键重复，请重新设置。");
-        return;
+        return false;
     }
     
     // 保存所有提供商配置
@@ -693,10 +660,10 @@ void SettingsDialog::saveSettings()
     
     // 保存通用设置
     m_configManager->setSetting("auto_copy_result", m_autoCopyCheck->isChecked());
-    m_configManager->setSetting("auto_save", m_autoSaveCheck->isChecked());
     m_configManager->setSetting("auto_recognize_after_screenshot", m_autoRecognizeAfterScreenshot->isChecked());
+    // 历史记录相关设置
+    m_configManager->setSetting("history_persistence", m_persistenceCheck->isChecked());
     m_configManager->setSetting("max_history", m_maxHistorySpin->value());
-    m_configManager->setSetting("save_folder", m_saveFolderEdit->text());
     
     // 保存快捷键
     m_configManager->setSetting("shortcut_screenshot", screenshotKey);
@@ -716,9 +683,11 @@ void SettingsDialog::saveSettings()
         qDebug() << "✓ 配置已保存到:" << configPath;
         m_modified = false;
         emit settingsChanged();
+        return true;
     } else {
         qWarning() << "✗ 保存配置失败";
         QMessageBox::warning(this, "错误", "保存配置失败，请检查文件权限");
+        return false;
     }
 }
 
@@ -1264,18 +1233,15 @@ void SettingsDialog::updatePromptList()
 
 void SettingsDialog::onSaveClicked()
 {
-    saveSettings();
-    accept();
+    // 仅在保存成功时才关闭对话框；如果校验失败或写文件失败，保持窗口打开
+    if (saveSettings()) {
+        accept();
+    }
 }
 
 void SettingsDialog::onCancelClicked()
 {
     reject();
-}
-
-void SettingsDialog::onApplyClicked()
-{
-    saveSettings();
 }
 
 void SettingsDialog::onAddModelClicked()

@@ -28,7 +28,6 @@ signals:
 private slots:
     void onSaveClicked();
     void onCancelClicked();
-    void onApplyClicked();
     void onAddModelClicked();
     void onEditModelClicked();
     void onRemoveModelClicked();
@@ -46,7 +45,8 @@ private:
     void setupAboutTab();
     
     void loadSettings();
-    void saveSettings();
+    // 返回 true 表示保存成功（包括通过校验并写入文件），false 表示校验失败或写文件失败
+    bool saveSettings();
     void updateModelList();
     void updatePromptList();
     
@@ -101,11 +101,9 @@ private:
     // 通用设置标签页
     QWidget* m_generalTab;
     QCheckBox* m_autoCopyCheck;
-    QCheckBox* m_autoSaveCheck;
     QCheckBox* m_autoRecognizeAfterScreenshot;
     QCheckBox* m_persistenceCheck;
     QSpinBox* m_maxHistorySpin;
-    QLineEdit* m_saveFolderEdit;
 
     // 关于标签页
     QWidget* m_aboutTab;
@@ -113,7 +111,6 @@ private:
     // 按钮
     QPushButton* m_saveBtn;
     QPushButton* m_cancelBtn;
-    QPushButton* m_applyBtn;
     
     bool m_modified;
 };
