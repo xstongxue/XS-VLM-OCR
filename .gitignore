@@ -37,6 +37,7 @@ ui_*.h
 
 # IDE 配置
 .vscode/
+.cursor/
 .vs/
 .idea/
 *.suo

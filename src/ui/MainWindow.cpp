@@ -1893,80 +1893,31 @@ void MainWindow::onRecognizeClicked()
         QString engine = m_pipeline->currentAdapter()->config().engine;
         QString errorMsg;
         
+        QString baseMsg = QString("模型未初始化！\n模型：%1\n\n").arg(modelName);
+        QString detailMsg;
+
         if (engine == "tesseract") {
-            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
-                             "请检查 Tesseract 是否正确安装：\n"
-                             "1. 下载安装 Tesseract-OCR\n"
-                             "2. 添加到系统 PATH\n"
-                             "3. 或在设置中指定完整路径").arg(modelName);
+            detailMsg = "请检查 Tesseract 是否正确安装：\n"
+                        "1. 下载安装 Tesseract-OCR\n"
+                        "2. 添加到系统 PATH\n"
+                        "3. 或在设置中指定完整路径";
         } 
-        else if (engine == "qwen") 
+        else if (engine == "qwen" || engine == "custom" || engine == "gen" || 
+                 engine == "gemini" || engine == "glm" || engine == "paddle" || 
+                 engine == "doubao") 
         {
-            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
-                             "可能的原因：\n"
-                             "1. API Key 未配置或无效\n"
-                             "2. 网络连接问题\n"
-                             "3. API 地址配置错误\n\n"
-                             "请点击设置按钮，在「模型配置」标签页填写 API Key").arg(modelName);
-        } 
-        else if (engine == "custom") 
-        {
-            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
-                             "可能的原因：\n"
-                             "1. API Key 未配置或无效\n"
-                             "2. 网络连接问题\n"
-                             "3. API 地址配置错误\n\n"
-                             "请点击设置按钮，在「模型配置」标签页填写 API Key").arg(modelName);
-        } 
-        else if (engine == "gen") 
-        {
-            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
-                             "可能的原因：\n"
-                             "1. API Key 未配置或无效\n"
-                             "2. 网络连接问题\n"
-                             "3. API 地址配置错误\n\n"
-                             "请点击设置按钮，在「模型配置」标签页填写 API Key").arg(modelName);
-        }
-        else if (engine == "gemini") 
-        {
-            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
-                             "可能的原因：\n"
-                             "1. API Key 未配置或无效\n"
-                             "2. 网络连接问题\n"
-                             "3. API 地址配置错误\n\n"
-                             "请点击设置按钮，在「模型配置」标签页填写 API Key").arg(modelName);
-        }
-        else if (engine == "glm") 
-        {
-            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
-                             "可能的原因：\n"
-                             "1. API Key 未配置或无效\n"
-                             "2. 网络连接问题\n"
-                             "3. API 地址配置错误\n\n"
-                             "请点击设置按钮，在「模型配置」标签页填写 API Key").arg(modelName);
-        }
-        else if (engine == "paddle")
-        {
-            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
-                             "可能的原因：\n"
-                             "1. API Token 未配置或无效\n"
-                             "2. API URL 未配置\n"
-                             "3. 网络连接问题\n\n"
-                             "请点击设置按钮，在「模型配置」标签页填写 API Token 和 API URL").arg(modelName);
-        } 
-        else if (engine == "doubao")
-        {
-            errorMsg = QString("模型未初始化！\n模型：%1\n\n"
-                             "可能的原因：\n"
-                             "1. API Key 未配置或无效\n"
-                             "2. API URL 未配置\n"
-                             "3. 网络连接问题\n\n"
-                             "请点击设置按钮，在「模型配置」标签页填写 API Key 和 API URL").arg(modelName);
+            detailMsg = "可能的原因：\n"
+                        "1. API Key 未配置或无效\n"
+                        "2. API URL 未配置\n"
+                        "3. 网络连接问题\n\n"
+                        "请点击设置按钮，在「模型配置」标签页填写 API Key 和 API URL";
         } 
         else 
         {
-            errorMsg = QString("模型未初始化！\n模型：%1\n\n请检查模型配置。").arg(modelName);
+            detailMsg = "请检查模型配置。";
         }
+        
+        errorMsg = baseMsg + detailMsg;
         
         QMessageBox::warning(this, "错误", errorMsg);
         return;

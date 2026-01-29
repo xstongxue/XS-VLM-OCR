@@ -1,6 +1,7 @@
 #pragma once
 #include <QObject>
 #include <QImage>
+#include <QPointer>
 #include <QThreadPool>
 #include "ModelAdapter.h"
 #include "OCRResult.h"
@@ -44,7 +45,6 @@ private:
     QThreadPool* m_threadPool;
     QString m_currentPrompt;
 };
-
 // OCR 异步任务
 class OCRTask : public QObject, public QRunnable {
     Q_OBJECT
@@ -64,7 +64,7 @@ signals:
     void error(const QString& errorMsg, const QImage& image, SubmitSource source, const QString& contextId);
     
 private:
-    ModelAdapter* m_adapter;
+    QPointer<ModelAdapter> m_adapter;
     QImage m_image;
     SubmitSource m_source;
     QString m_prompt;
