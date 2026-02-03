@@ -82,46 +82,203 @@ QSqlDatabase HistoryManager::getDatabase() {
 }
 
 void HistoryManager::loadHistory() {
+    // 如果开启了持久化，从数据库预加载最近的记录到内存缓存，以便加速缓存命中
+    if (m_persistenceEnabled) {
+        m_memoryHistory.clear();
+        QSqlDatabase db = getDatabase();
+        if (db.isOpen()) {
+            QSqlQuery query(db);
+            query.prepare("SELECT * FROM history ORDER BY timestamp DESC LIMIT :limit");
+            // 内存缓存限制为最大历史记录数，或者默认50条
+            query.bindValue(":limit", m_maxHistory > 0 ? m_maxHistory : 50);
+            if (query.exec()) {
+                while (query.next()) {
+                    HistoryItem item;
+                    item.id = query.value("id").toLongLong();
+                    item.timestamp = QDateTime::fromMSecsSinceEpoch(query.value("timestamp").toLongLong());
+                    item.imagePath = query.value("image_path").toString();
+                    item.source = static_cast<SubmitSource>(query.value("source").toInt());
+                    item.result.success = query.value("success").toBool();
+                    item.result.fullText = query.value("full_text").toString();
+                    item.result.modelName = query.value("model_name").toString();
+                    item.result.processingTimeMs = query.value("processing_time_ms").toLongLong();
+                    item.result.errorMessage = query.value("error_message").toString();
+                    item.contentHash = query.value("content_hash").toString();
+                    // 内存缓存暂不加载图片数据以节省内存
+                    m_memoryHistory.append(item);
+                }
+            }
+        }
+    }
+    
+    emit historyChanged();
+}
+
+int HistoryManager::getTotalCount(const HistoryFilter& filter) {
+    if (!m_persistenceEnabled) {
+        // 未开启持久化，从内存统计
+        int count = 0;
+        for (const auto& item : m_memoryHistory) {
+            bool match = true;
+            if (filter.startTime.isValid() && item.timestamp < filter.startTime) match = false;
+            if (filter.endTime.isValid() && item.timestamp > filter.endTime) match = false;
+            if (!filter.keyword.isEmpty() && !item.result.fullText.contains(filter.keyword, Qt::CaseInsensitive) 
+                && !item.result.modelName.contains(filter.keyword, Qt::CaseInsensitive)) match = false;
+            if (match) count++;
+        }
+        return count;
+    }
+
     QSqlDatabase db = getDatabase();
-    if (!db.isOpen()) return;
-    
-    // 从数据库加载到内存缓存
-    m_history.clear();
-    
-    // 限制加载数量
+    if (!db.isOpen()) return 0;
+
+    QString sql = "SELECT COUNT(*) FROM history WHERE 1=1";
+    if (filter.startTime.isValid()) sql += " AND timestamp >= :start";
+    if (filter.endTime.isValid()) sql += " AND timestamp <= :end";
+    if (!filter.keyword.isEmpty()) sql += " AND (full_text LIKE :kw OR model_name LIKE :kw)";
+
     QSqlQuery query(db);
-    query.prepare("SELECT * FROM history ORDER BY timestamp DESC LIMIT :limit");
-    query.bindValue(":limit", m_maxHistory > 0 ? m_maxHistory : 100);
+    query.prepare(sql);
     
+    if (filter.startTime.isValid()) query.bindValue(":start", filter.startTime.toMSecsSinceEpoch());
+    if (filter.endTime.isValid()) query.bindValue(":end", filter.endTime.toMSecsSinceEpoch());
+    if (!filter.keyword.isEmpty()) query.bindValue(":kw", "%" + filter.keyword + "%");
+
+    if (query.exec() && query.next()) {
+        return query.value(0).toInt();
+    }
+    return 0;
+}
+
+QVector<HistoryItem> HistoryManager::getHistoryList(int page, int pageSize, const HistoryFilter& filter) {
+    QVector<HistoryItem> list;
+    
+    if (!m_persistenceEnabled) {
+        // 未开启持久化，从内存获取
+        int offset = (page - 1) * pageSize;
+        int count = 0;
+        int added = 0;
+        
+        for (const auto& item : m_memoryHistory) {
+            bool match = true;
+            if (filter.startTime.isValid() && item.timestamp < filter.startTime) match = false;
+            if (filter.endTime.isValid() && item.timestamp > filter.endTime) match = false;
+            if (!filter.keyword.isEmpty() && !item.result.fullText.contains(filter.keyword, Qt::CaseInsensitive) 
+                && !item.result.modelName.contains(filter.keyword, Qt::CaseInsensitive)) match = false;
+            
+            if (match) {
+                if (count >= offset && added < pageSize) {
+                    // 内存列表中的 item 可能没有加载图片，如果是为了列表显示，这正好。
+                    // 详情显示会调用 getHistoryDetail
+                    list.append(item);
+                    added++;
+                }
+                count++;
+                if (added >= pageSize) break;
+            }
+        }
+        return list;
+    }
+
+    QSqlDatabase db = getDatabase();
+    if (!db.isOpen()) return list;
+
+    QString sql = "SELECT * FROM history WHERE 1=1";
+    if (filter.startTime.isValid()) sql += " AND timestamp >= :start";
+    if (filter.endTime.isValid()) sql += " AND timestamp <= :end";
+    if (!filter.keyword.isEmpty()) sql += " AND (full_text LIKE :kw OR model_name LIKE :kw)";
+    
+    sql += " ORDER BY timestamp DESC LIMIT :limit OFFSET :offset";
+
+    QSqlQuery query(db);
+    query.prepare(sql);
+    
+    if (filter.startTime.isValid()) query.bindValue(":start", filter.startTime.toMSecsSinceEpoch());
+    if (filter.endTime.isValid()) query.bindValue(":end", filter.endTime.toMSecsSinceEpoch());
+    if (!filter.keyword.isEmpty()) query.bindValue(":kw", "%" + filter.keyword + "%");
+    
+    query.bindValue(":limit", pageSize);
+    query.bindValue(":offset", (page - 1) * pageSize);
+
     if (query.exec()) {
         while (query.next()) {
             HistoryItem item;
+            item.id = query.value("id").toLongLong();
             item.timestamp = QDateTime::fromMSecsSinceEpoch(query.value("timestamp").toLongLong());
             item.imagePath = query.value("image_path").toString();
             item.source = static_cast<SubmitSource>(query.value("source").toInt());
             
             item.result.success = query.value("success").toBool();
-            item.result.fullText = query.value("full_text").toString();
+            // 列表模式只读取前100个字符作为预览，避免大量内存占用
+            QString fullText = query.value("full_text").toString();
+            item.result.fullText = fullText; 
             item.result.modelName = query.value("model_name").toString();
             item.result.processingTimeMs = query.value("processing_time_ms").toLongLong();
             item.result.errorMessage = query.value("error_message").toString();
             item.contentHash = query.value("content_hash").toString();
             
-            if (!item.imagePath.isEmpty() && QFile::exists(item.imagePath)) {
-                item.image.load(item.imagePath);
-            }
+            // 注意：列表模式不加载图片 QImage，只保留路径
+            // item.image.load(item.imagePath); 
             
-            m_history.append(item);
+            list.append(item);
         }
     } else {
-        qWarning() << "HistoryManager: Load failed:" << query.lastError().text();
+        qWarning() << "HistoryManager: List query failed:" << query.lastError().text();
+    }
+    return list;
+}
+
+HistoryItem HistoryManager::getHistoryDetail(long long id) {
+    if (!m_persistenceEnabled) {
+        // 未开启持久化时从内存查找 (使用时间戳作为临时ID)
+        for (auto& item : m_memoryHistory) {
+            if (item.id == id) {
+                 // 确保图片已加载
+                 if (item.image.isNull() && !item.imagePath.isEmpty() && QFile::exists(item.imagePath)) {
+                     item.image.load(item.imagePath);
+                 }
+                 return item;
+            }
+        }
+        return HistoryItem();
     }
 
-    emit historyChanged();
+    HistoryItem item;
+    QSqlDatabase db = getDatabase();
+    if (!db.isOpen()) return item;
+
+    QSqlQuery query(db);
+    query.prepare("SELECT * FROM history WHERE id = :id");
+    query.bindValue(":id", id);
+
+    if (query.exec() && query.next()) {
+        item.id = query.value("id").toLongLong();
+        item.timestamp = QDateTime::fromMSecsSinceEpoch(query.value("timestamp").toLongLong());
+        item.imagePath = query.value("image_path").toString();
+        item.source = static_cast<SubmitSource>(query.value("source").toInt());
+        
+        item.result.success = query.value("success").toBool();
+        item.result.fullText = query.value("full_text").toString();
+        item.result.modelName = query.value("model_name").toString();
+        item.result.processingTimeMs = query.value("processing_time_ms").toLongLong();
+        item.result.errorMessage = query.value("error_message").toString();
+        item.contentHash = query.value("content_hash").toString();
+        
+        // 详情模式加载图片
+        if (!item.imagePath.isEmpty() && QFile::exists(item.imagePath)) {
+            item.image.load(item.imagePath);
+        }
+    }
+    return item;
 }
 
 void HistoryManager::addHistoryItem(const HistoryItem& item) {
     HistoryItem newItem = item;
+
+    // 0. 生成临时 ID (如果未持久化，使用时间戳作为 ID)
+    if (newItem.id == -1) {
+        newItem.id = newItem.timestamp.toMSecsSinceEpoch(); 
+    }
 
     // 1. 保存图片到磁盘 (仅在启用持久化时)
     if (m_persistenceEnabled && newItem.imagePath.isEmpty()) {
@@ -135,8 +292,8 @@ void HistoryManager::addHistoryItem(const HistoryItem& item) {
         }
     }
     
-    // 2. 更新内存缓存
-    m_history.prepend(newItem);
+    // 2. 更新内存缓存以支持快速检索与展示 (通过 enforceMaxHistory 控制内存占用)
+    m_memoryHistory.prepend(newItem);
     
     // 3. 写入数据库 (仅在启用持久化时)
     if (m_persistenceEnabled) {
@@ -158,6 +315,8 @@ void HistoryManager::addHistoryItem(const HistoryItem& item) {
             
             if (!query.exec()) {
                  qWarning() << "HistoryManager: Insert failed:" << query.lastError().text();
+            } else {
+                newItem.id = query.lastInsertId().toLongLong();
             }
         }
     }
@@ -172,8 +331,8 @@ void HistoryManager::enforceMaxHistory() {
     if (m_maxHistory <= 0) return;
     
     // 内存清理
-    if (m_history.size() > m_maxHistory) {
-        m_history.resize(m_maxHistory);
+    if (m_memoryHistory.size() > m_maxHistory) {
+        m_memoryHistory.resize(m_maxHistory);
     }
     
     if (!m_persistenceEnabled) return;
@@ -204,14 +363,17 @@ void HistoryManager::enforceMaxHistory() {
 }
 
 const QVector<HistoryItem>& HistoryManager::getHistory() const {
-    return m_history;
+    // 兼容旧接口，返回空列表，或者如果需要可以返回第一页
+    // 由于我们移除了 m_history，这里返回临时空对象
+    static QVector<HistoryItem> empty;
+    return empty; 
 }
 
 void HistoryManager::clearHistory() {
     QSqlDatabase db = getDatabase();
 
     // 1. 清理磁盘图片
-    if (m_persistenceEnabled && db.isOpen()) {
+    if (db.isOpen()) {
         QSqlQuery query(db);
         query.exec("SELECT image_path FROM history");
         while (query.next()) {
@@ -220,51 +382,17 @@ void HistoryManager::clearHistory() {
                 QFile::remove(path);
             }
         }
-    } else {
-        // 如果未启用持久化，尝试清理缓存列表中的图片
-        for (const auto& item : m_history) {
-            if (!item.imagePath.isEmpty() && QFile::exists(item.imagePath)) {
-                QFile::remove(item.imagePath);
-            }
-        }
-    }
+    } 
+    
+    // 2. 清空内存
+    m_memoryHistory.clear();
 
-    // 2. 清空数据库
+    // 3. 清空数据库
     if (db.isOpen()) {
         QSqlQuery query(db);
         query.exec("DELETE FROM history");
         query.exec("VACUUM"); // 释放空间
     }
-    
-    // 3. 清空内存
-    m_history.clear();
-    
-    emit historyChanged();
-}
-
-void HistoryManager::removeHistoryItem(int index) {
-    if (index < 0 || index >= m_history.size()) return;
-
-    const HistoryItem& item = m_history[index];
-    
-    if (m_persistenceEnabled) {
-        // 1. 删除文件
-        if (!item.imagePath.isEmpty() && QFile::exists(item.imagePath)) {
-            QFile::remove(item.imagePath);
-        }
-        
-        // 2. 删除数据库记录
-        QSqlDatabase db = getDatabase();
-        if (db.isOpen()) {
-            QSqlQuery query(db);
-            query.prepare("DELETE FROM history WHERE timestamp = :ts");
-            query.bindValue(":ts", item.timestamp.toMSecsSinceEpoch());
-            query.exec();
-        }
-    }
-    
-    // 3. 删除内存记录
-    m_history.remove(index);
     
     emit historyChanged();
 }
@@ -284,46 +412,7 @@ void HistoryManager::setPersistenceEnabled(bool enabled) {
             return;
         }
 
-        qDebug() << "HistoryManager: Persistence enabled, migrating" << m_history.size() << "items to DB.";
-        
-        db.transaction();
-        QSqlQuery insertQuery(db);
-        insertQuery.prepare("INSERT INTO history (timestamp, image_path, source, success, full_text, model_name, processing_time_ms, error_message, content_hash) "
-                      "VALUES (:ts, :path, :src, :success, :txt, :model, :time, :err, :hash)");
-
-        // 将内存中的历史记录保存到数据库
-        for (auto& item : m_history) {
-             // 如果已经持久化，跳过
-             if (item.persisted) continue;
-
-             if (item.imagePath.isEmpty() && !item.image.isNull()) {
-                 QString fileName = QString("%1.png").arg(item.timestamp.toString("yyyyMMdd_HHmmss_zzz"));
-                 QString filePath = m_imagesDir + "/" + fileName;
-                 if (item.image.save(filePath)) {
-                     item.imagePath = filePath;
-                 } else {
-                     qWarning() << "HistoryManager: Failed to save image during migration:" << filePath;
-                 }
-             }
-             
-             insertQuery.bindValue(":ts", item.timestamp.toMSecsSinceEpoch());
-             insertQuery.bindValue(":path", item.imagePath);
-             insertQuery.bindValue(":src", static_cast<int>(item.source));
-             insertQuery.bindValue(":success", item.result.success ? 1 : 0);
-             insertQuery.bindValue(":txt", item.result.fullText);
-             insertQuery.bindValue(":model", item.result.modelName);
-             insertQuery.bindValue(":time", item.result.processingTimeMs);
-             insertQuery.bindValue(":err", item.result.errorMessage);
-             insertQuery.bindValue(":hash", item.contentHash);
-             
-             if (!insertQuery.exec()) {
-                qWarning() << "HistoryManager: Failed to insert item during migration:" << insertQuery.lastError().text();
-             } else {
-                item.persisted = true;
-             }
-        }
-        db.commit();
-        qDebug() << "HistoryManager: Migration completed.";
+        qDebug() << "HistoryManager: Persistence enabled.";
     }
 }
 
@@ -362,8 +451,7 @@ QString HistoryManager::computeContentHash(const QImage& img, const QString& pro
 
     // Hash Params (QMap 参数按key排序)
     for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
-        // 跳过 API Key 等敏感信息，避免因更换 Key 导致缓存失效
-        // 但如果用户认为 Key 不同应该对应不同结果，可以移除此过滤
+        // 跳过敏感信息 (API Key等) 避免因 Key 变更导致缓存失效
         if (it.key().compare("api_key", Qt::CaseInsensitive) == 0) continue;
         if (it.key().compare("secret_key", Qt::CaseInsensitive) == 0) continue;
         if (it.key().compare("access_token", Qt::CaseInsensitive) == 0) continue;
@@ -378,10 +466,9 @@ QString HistoryManager::computeContentHash(const QImage& img, const QString& pro
 HistoryItem HistoryManager::findItemByHash(const QString& hash) {
     if (hash.isEmpty()) return HistoryItem();
     
-    // 1. 缓存命中: 在内存中搜索
-    // 优先返回最近的记录 (因为 m_history 是按时间倒序排列的)
-    for (const auto& item : m_history) 
-    {
+    // 1. 缓存命中: 在内存中搜索 (如果启用持久化)
+    // 优先返回最近的记录 (因为 m_memoryHistory 是按时间倒序排列的)
+    for (const auto& item : m_memoryHistory) {
         if (item.contentHash == hash && item.result.success) 
             return item;
     }
@@ -396,6 +483,7 @@ HistoryItem HistoryManager::findItemByHash(const QString& hash) {
             query.bindValue(":hash", hash);
             if (query.exec() && query.next()) {
                 HistoryItem item;
+                item.id = query.value("id").toLongLong(); // Add ID
                 item.timestamp = QDateTime::fromMSecsSinceEpoch(query.value("timestamp").toLongLong());
                 item.imagePath = query.value("image_path").toString();
                 item.source = static_cast<SubmitSource>(query.value("source").toInt());

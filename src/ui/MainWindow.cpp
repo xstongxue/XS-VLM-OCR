@@ -492,6 +492,35 @@ void MainWindow::setupUI()
     historyPageLayout->setContentsMargins(30, 30, 30, 30);
     historyPageLayout->setSpacing(20);
     
+    // 筛选区域
+    QHBoxLayout *filterLayout = new QHBoxLayout();
+    filterLayout->setSpacing(10);
+    
+    m_startDateEdit = new QDateEdit(QDate::currentDate().addDays(-7));
+    m_startDateEdit->setCalendarPopup(true);
+    m_startDateEdit->setDisplayFormat("yyyy-MM-dd");
+    m_startDateEdit->setFixedWidth(120);
+    
+    m_endDateEdit = new QDateEdit(QDate::currentDate());
+    m_endDateEdit->setCalendarPopup(true);
+    m_endDateEdit->setDisplayFormat("yyyy-MM-dd");
+    m_endDateEdit->setFixedWidth(120);
+    
+    m_searchEdit = new QLineEdit();
+    m_searchEdit->setPlaceholderText("搜索内容或模型...");
+    
+    m_searchBtn = new QPushButton("查询");
+    m_searchBtn->setFixedWidth(80);
+    
+    filterLayout->addWidget(new QLabel("从:"));
+    filterLayout->addWidget(m_startDateEdit);
+    filterLayout->addWidget(new QLabel("至:"));
+    filterLayout->addWidget(m_endDateEdit);
+    filterLayout->addWidget(m_searchEdit);
+    filterLayout->addWidget(m_searchBtn);
+    
+    historyPageLayout->addLayout(filterLayout);
+
     m_historyList = new QListWidget();
     m_historyList->setStyleSheet(
         "QListWidget { "
@@ -511,6 +540,21 @@ void MainWindow::setupUI()
     );
     historyPageLayout->addWidget(m_historyList);
     
+    // 分页控件
+    QHBoxLayout *paginationLayout = new QHBoxLayout();
+    m_prevPageBtn = new QPushButton("上一页");
+    m_nextPageBtn = new QPushButton("下一页");
+    m_pageLabel = new QLabel("第 1 页");
+    m_pageLabel->setAlignment(Qt::AlignCenter);
+    
+    paginationLayout->addStretch();
+    paginationLayout->addWidget(m_prevPageBtn);
+    paginationLayout->addWidget(m_pageLabel);
+    paginationLayout->addWidget(m_nextPageBtn);
+    paginationLayout->addStretch();
+    
+    historyPageLayout->addLayout(paginationLayout);
+
     m_clearHistoryBtn = new QPushButton("清空历史");
     m_clearHistoryBtn->setMinimumHeight(40);
     m_clearHistoryBtn->setStyleSheet(
@@ -646,9 +690,27 @@ void MainWindow::setupConnections()
         } });
     connect(m_exportBtn, &QPushButton::clicked, this, &MainWindow::onExportResultClicked);
 
-    // 历史列表
-    connect(m_historyList, &QListWidget::itemClicked, this, &MainWindow::onHistoryItemClicked);
+    // 历史记录事件
+    connect(m_historyManager, &HistoryManager::historyChanged, this, [this]() {
+        loadHistoryPage(1); // 历史变动时重置到第一页
+    });
+    
     connect(m_clearHistoryBtn, &QPushButton::clicked, this, &MainWindow::onClearHistoryClicked);
+
+    connect(m_historyList, &QListWidget::itemClicked, this, &MainWindow::onHistoryItemClicked);
+    
+    // 筛选与分页事件
+    connect(m_searchBtn, &QPushButton::clicked, this, [this]() { loadHistoryPage(1); });
+    connect(m_prevPageBtn, &QPushButton::clicked, this, [this]() {
+        if (m_historyPageNum > 1) loadHistoryPage(m_historyPageNum - 1);
+    });
+    connect(m_nextPageBtn, &QPushButton::clicked, this, [this]() {
+        loadHistoryPage(m_historyPageNum + 1);
+    });
+    connect(m_searchEdit, &QLineEdit::returnPressed, this, [this]() { loadHistoryPage(1); });
+    
+    // 初始化加载第一页
+    loadHistoryPage(1);
 
     // Pipeline 连接
     connect(m_pipeline, &OCRPipeline::recognitionStarted,
@@ -704,23 +766,12 @@ void MainWindow::initializeServices()
     m_pipeline = new OCRPipeline(this);
     m_clipboardManager = new ClipboardManager(this);
     m_configManager = new ConfigManager(this);
+    // (已在 setupConnections 中移除旧的 historyChanged lambda)
+    // m_historyManager = new HistoryManager(this);
+    // connect(m_historyManager, &HistoryManager::historyChanged, [this]() { ... });
+    
     m_historyManager = new HistoryManager(this);
     
-    connect(m_historyManager, &HistoryManager::historyChanged, [this]() {
-        // 刷新历史记录列表
-        m_historyList->clear();
-        const auto& history = m_historyManager->getHistory();
-        for (const auto& item : history) {
-            QString timeStr = item.timestamp.toString("MM-dd HH:mm");
-            QString preview = item.result.fullText.left(20).replace("\n", " ");
-            if (preview.isEmpty()) preview = "[无文字]";
-            else if (item.result.fullText.length() > 20) preview += "...";
-            
-            QListWidgetItem* listItem = new QListWidgetItem(QString("%1 - %2").arg(timeStr, preview));
-            m_historyList->addItem(listItem);
-        }
-    });
-
     qDebug() << "=== Initializing XS-VLM-OCR Services ===";
 
     // 尝试从配置文件加载模型
@@ -1614,7 +1665,8 @@ void MainWindow::onRecognizeClicked()
 
 void MainWindow::onClearHistoryClicked()
 {
-    if (m_historyManager->getHistory().isEmpty())
+    // 使用 getTotalCount 判断是否有记录
+    if (m_historyManager->getTotalCount() == 0)
     {
         return;
     }
@@ -1976,14 +2028,62 @@ void MainWindow::updateResultDisplay(const HistoryItem &item)
     m_resultText->setPlainText(item.result.fullText);
 }
 
+void MainWindow::loadHistoryPage(int page)
+{
+    if (page < 1) page = 1;
+    m_historyPageNum = page;
+    m_pageLabel->setText(QString("第 %1 页").arg(page));
+    
+    // 构建筛选条件
+    HistoryManager::HistoryFilter filter;
+    filter.startTime = m_startDateEdit->dateTime();
+    // 结束时间设为当天的23:59:59
+    QDateTime end = m_endDateEdit->dateTime();
+    end.setTime(QTime(23, 59, 59));
+    filter.endTime = end;
+    filter.keyword = m_searchEdit->text().trimmed();
+    
+    // 获取数据
+    int total = m_historyManager->getTotalCount(filter);
+    int totalPages = (total + m_historyPageSize - 1) / m_historyPageSize;
+    if (totalPages < 1) totalPages = 1;
+    
+    // 更新分页按钮状态
+    m_prevPageBtn->setEnabled(page > 1);
+    m_nextPageBtn->setEnabled(page < totalPages);
+    m_pageLabel->setText(QString("第 %1 / %2 页 (共 %3 条)").arg(page).arg(totalPages).arg(total));
+    
+    QVector<HistoryItem> list = m_historyManager->getHistoryList(page, m_historyPageSize, filter);
+    
+    m_historyList->clear();
+    for (const auto& item : list) {
+        QString timeStr = item.timestamp.toString("yyyy-MM-dd HH:mm");
+        QString preview = item.result.fullText.left(50).replace("\n", " ");
+        if (preview.isEmpty()) preview = "[无文字]";
+        else if (item.result.fullText.length() > 50) preview += "...";
+        
+        QString modelInfo = item.result.modelName;
+        if (modelInfo.isEmpty()) modelInfo = "Unknown";
+        
+        // 自定义列表项显示格式
+        QString displayText = QString("%1 | %2\n%3").arg(timeStr, modelInfo, preview);
+        
+        QListWidgetItem* listItem = new QListWidgetItem(displayText);
+        // 存储ID以便点击时查询详情
+        listItem->setData(Qt::UserRole, item.id);
+        m_historyList->addItem(listItem);
+    }
+}
+
 void MainWindow::onHistoryItemClicked(QListWidgetItem *item)
 {
-    int index = m_historyList->row(item);
-    const auto& history = m_historyManager->getHistory();
-    if (index >= 0 && index < history.size())
+    long long id = item->data(Qt::UserRole).toLongLong();
+    HistoryItem detail = m_historyManager->getHistoryDetail(id);
+    
+    if (detail.id != -1) // 有效记录
     {
-        m_currentHistoryIndex = index;
-        updateResultDisplay(history[index]);
+        // 确保 m_currentHistoryIndex 逻辑不再依赖旧的 index，而是直接展示
+        updateResultDisplay(detail);
         // 切换回首页以显示预览与结果区域
         switchToPage("home");
         showStatusMessage("已加载历史记录");

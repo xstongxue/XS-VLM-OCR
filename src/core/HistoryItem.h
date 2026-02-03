@@ -5,6 +5,7 @@
 
 // 识别历史记录项
 struct HistoryItem {
+    long long id = -1;   // 数据库 ID
     QImage image;
     OCRResult result;
     SubmitSource source; // 提交源: 上传、粘贴、截图

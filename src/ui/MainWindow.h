@@ -14,6 +14,9 @@
 #include <QTimer>
 #include <QShortcut>
 #include <QCloseEvent>
+#include <QDateEdit>
+#include <QSpinBox>
+#include <QLineEdit>
 #include "SidebarWidget.h"
 #include "../core/OCRPipeline.h"
 #include "../core/HistoryItem.h"
@@ -72,6 +75,8 @@ private slots:
     
     // 历史列表选择
     void onHistoryItemClicked(QListWidgetItem* item);
+    // 历史分页查询
+    void loadHistoryPage(int page);
     // 系统托盘
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
     // 设置变更
@@ -162,6 +167,17 @@ private:
     // 历史页面组件
     QListWidget* m_historyList;
     QPushButton* m_clearHistoryBtn;
+    // 历史筛选与分页
+    QDateEdit* m_startDateEdit;
+    QDateEdit* m_endDateEdit;
+    QLineEdit* m_searchEdit;
+    QPushButton* m_searchBtn;
+    QPushButton* m_prevPageBtn;
+    QPushButton* m_nextPageBtn;
+    QLabel* m_pageLabel;
+    int m_historyPageNum = 1;
+    int m_historyPageSize = 20;
+    
     // 设置按钮
     QPushButton* m_settingsBtn;
     QLabel* m_statusLabel;

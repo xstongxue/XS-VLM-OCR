@@ -25,8 +25,6 @@ public:
     // 获取历史记录列表
     const QVector<HistoryItem>& getHistory() const;
     
-    // 删除单条记录
-    void removeHistoryItem(int index);
 
     // 设置是否启用持久化
     void setPersistenceEnabled(bool enabled);
@@ -35,6 +33,21 @@ public:
     // 设置最大历史记录数量
     void setMaxHistory(int max);
     int getMaxHistory() const;
+
+    struct HistoryFilter {
+        QDateTime startTime;
+        QDateTime endTime;
+        QString keyword;
+    };
+
+    // 获取历史记录总数 (用于分页)
+    int getTotalCount(const HistoryFilter& filter = HistoryFilter());
+
+    // 分页获取历史记录
+    QVector<HistoryItem> getHistoryList(int page, int pageSize, const HistoryFilter& filter = HistoryFilter());
+
+    // 根据ID获取单条详情 (包含加载图片)
+    HistoryItem getHistoryDetail(long long id);
 
     // 计算内容哈希
     static QString computeContentHash(const QImage& img, const QString& prompt, const QString& model, const QMap<QString, QString>& params = QMap<QString, QString>());
@@ -46,7 +59,7 @@ signals:
     void historyChanged();
 
 private:
-    QVector<HistoryItem> m_history; // 内存缓存，用于 UI 显示
+    QVector<HistoryItem> m_memoryHistory; // 内存缓存 (无论是否持久化都维护，用于缓存命中和非持久化模式)
     QString m_historyDir;
     QString m_imagesDir;
     
