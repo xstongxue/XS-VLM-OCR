@@ -29,6 +29,8 @@ private:
     static QString getDarkButtonStyle(const QString& btnDark, const QString& btnDarkHover);
     static QString getHintLabelStyle(bool grayTheme);
     static QString getEditStyle(bool grayTheme);
+    static QString getLineEditStyle(bool grayTheme);
+    static QString getCalendarStyle(bool grayTheme);
     static QString getResultTextStyle(bool grayTheme);
     static QString getConfigLabelStyle(bool grayTheme);
     static QString getSeparatorStyle(bool grayTheme);

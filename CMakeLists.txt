@@ -9,11 +9,11 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)  
 
 # Qt 搜索：优先 Qt6，失败再退回 Qt5；可在命令行通过 CMAKE_PREFIX_PATH 指定安装路径
-find_package(Qt6 COMPONENTS Widgets Network Concurrent Sql QUIET)
+find_package(Qt6 COMPONENTS Widgets Network Concurrent Sql PrintSupport QUIET)
 if(Qt6_FOUND)
     set(QT_PACKAGE Qt6)
 else()
-    find_package(Qt5 COMPONENTS Widgets Network Concurrent Sql REQUIRED)
+    find_package(Qt5 COMPONENTS Widgets Network Concurrent Sql PrintSupport REQUIRED)
     set(QT_PACKAGE Qt5)
 endif()
 
@@ -169,6 +169,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${QT_PACKAGE}::Network
     ${QT_PACKAGE}::Concurrent
     ${QT_PACKAGE}::Sql
+    ${QT_PACKAGE}::PrintSupport
 )
 
 # 复制配置模板文件到构建目录

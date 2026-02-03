@@ -526,7 +526,6 @@ void SettingsDialog::setupAboutTab()
         " - 主流大模型支持（Qwen、GLM、Paddle、Custom、Tesseract）\n"
         " - 智能提示词管理（识别、翻译、解答、整理四大类）\n"
         " - 现代化UI界面（主题切换、侧边栏折叠）\n"
-        " - 历史记录管理（SQLite持久化）\n"
         " - 异步任务处理（多线程并发）\n"
         "\n"
         "v1.1.0\n"
@@ -534,9 +533,13 @@ void SettingsDialog::setupAboutTab()
         " - 支持新的功能：批量图片异步并发处理、多屏截图、侧边栏可拖拽、结果Markdown预览\n"
         " - 跨平台支持（Win && Linux）\n"
         "\n"
-        "v1.2.0【规划中】\n"
-        " - 支持PDF文件上传\n"
+        "v1.2.0\n"
+        " - 历史记录管理（SQLite持久化，筛选、搜索、分页）\n"
+        " - 缓存去重功能（防止重复处理相同内容，提高速度）\n"
         " - 结果导出多格式（Markdown、PDF、Word、Excel）\n"
+        "\n"    
+        "v1.3.0【规划中】\n"
+        " - 支持Docx / PDF文件上传\n"
         " - 更多平台支持：Mac / Android\n"
     );
     layout->addWidget(changelog);

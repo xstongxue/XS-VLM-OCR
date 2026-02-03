@@ -323,6 +323,14 @@ void ThemeManager::applyTheme(MainWindow* window, bool grayTheme)
         window->m_historyList->setStyleSheet(getHistoryListStyle(grayTheme));
     }
     
+    // 更新历史记录筛选控件样式
+    if (window->m_searchEdit) {
+        QString inputStyle = getLineEditStyle(grayTheme);
+        window->m_searchEdit->setStyleSheet(inputStyle);
+        if (window->m_startDateEdit) window->m_startDateEdit->setStyleSheet(inputStyle);
+        if (window->m_endDateEdit) window->m_endDateEdit->setStyleSheet(inputStyle);
+    }
+    
     // 更新状态栏样式
     window->statusBar()->setStyleSheet(getStatusBarStyle(grayTheme));
     
@@ -351,7 +359,9 @@ void ThemeManager::applyTheme(MainWindow* window, bool grayTheme)
     }
     
     // 更新滚动条样式（增大尺寸以提高灵敏度）
-    window->setStyleSheet(getScrollBarStyle(grayTheme));
+    QString globalStyle = getScrollBarStyle(grayTheme);
+    globalStyle += getCalendarStyle(grayTheme);
+    window->setStyleSheet(globalStyle);
     
     // 更新所有滚动区域的滚动步长
     auto scrollAreasForScroll = window->findChildren<QScrollArea*>();
@@ -822,6 +832,29 @@ QString ThemeManager::getEditStyle(bool grayTheme) {
     } else {
         return "QTextEdit { padding: 12px; font-size: 10pt; font-weight: 400; border: 1px solid #e0e0e0; border-radius: 8px; background: #ffffff; color: #000000; line-height: 1.5; }"
                "QTextEdit:focus { border-color: #000000; background: #ffffff; }";
+    }
+}
+
+QString ThemeManager::getLineEditStyle(bool grayTheme) {
+    if (grayTheme) {
+        return "QLineEdit, QDateEdit { padding: 6px 10px; font-size: 10pt; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(0, 0, 0, 0.25); color: #e0e0e0; }"
+               "QLineEdit:focus, QDateEdit:focus { border-color: rgba(255, 255, 255, 0.35); background: rgba(0, 0, 0, 0.35); }";
+    } else {
+        return "QLineEdit, QDateEdit { padding: 6px 10px; font-size: 10pt; border: 1px solid #e0e0e0; border-radius: 6px; background: #ffffff; color: #000000; }"
+               "QLineEdit:focus, QDateEdit:focus { border-color: #000000; background: #ffffff; }";
+    }
+}
+
+QString ThemeManager::getCalendarStyle(bool grayTheme) {
+    if (grayTheme) {
+        return "QCalendarWidget QWidget { background-color: #2b2b2b; color: #e0e0e0; }"
+               "QCalendarWidget QToolButton { color: #e0e0e0; icon-size: 24px; }"
+               "QCalendarWidget QMenu { background-color: #2b2b2b; color: #e0e0e0; }"
+               "QCalendarWidget QSpinBox { background-color: #2b2b2b; color: #e0e0e0; }"
+               "QCalendarWidget QAbstractItemView:enabled { background-color: #2b2b2b; color: #e0e0e0; selection-background-color: #404040; selection-color: #ffffff; }"
+               "QCalendarWidget QAbstractItemView:disabled { color: #666666; }";
+    } else {
+        return ""; 
     }
 }
 

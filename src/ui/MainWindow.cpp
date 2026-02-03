@@ -16,6 +16,8 @@
 #include <QGroupBox>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QPrinter>
+#include <QTextDocument>
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QFrame>
@@ -1819,28 +1821,97 @@ void MainWindow::onExportResultClicked()
         return;
     }
 
+    // 定义支持的格式
+    QString filters = "纯文本 (*.txt);;Markdown (*.md);;PDF 文档 (*.pdf);;Word 文档 (*.doc);;Excel 表格 (*.csv)";
+    QString selectedFilter;
+
     QString fileName = QFileDialog::getSaveFileName(
         this,
-        "导出文本",
+        "导出结果",
         QString("ocr_result_%1.txt").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss")),
-        "文本文件 (*.txt)");
+        filters,
+        &selectedFilter);
 
     if (fileName.isEmpty())
     {
         return;
     }
 
-    QFile file(fileName);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    QString content = m_resultText->toPlainText();
+    
+    // 根据文件扩展名处理导出
+    if (fileName.endsWith(".pdf", Qt::CaseInsensitive))
     {
-        QMessageBox::warning(this, "错误", "无法写入文件");
-        return;
+        QPrinter printer(QPrinter::HighResolution);
+        printer.setOutputFormat(QPrinter::PdfFormat);
+        printer.setOutputFileName(fileName);
+        
+        QTextDocument doc;
+        // 使用简单的 HTML 包装来保持换行
+        QString htmlContent = QString("<pre>%1</pre>").arg(content.toHtmlEscaped());
+        doc.setHtml(htmlContent);
+        doc.print(&printer);
     }
+    else if (fileName.endsWith(".doc", Qt::CaseInsensitive))
+    {
+        // 导出为 HTML 伪装的 Word 文档
+        QFile file(fileName);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            QMessageBox::warning(this, "错误", "无法写入文件");
+            return;
+        }
+        QTextStream out(&file);
+        out.setCodec("UTF-8");
+        // 添加 Word 友好的 HTML 头
+        out << "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>";
+        out << "<head><meta charset='utf-8'><title>OCR Result</title></head><body>";
+        out << QString("<pre style='font-family: Arial; font-size: 11pt;'>%1</pre>").arg(content.toHtmlEscaped());
+        out << "</body></html>";
+        file.close();
+    }
+    else if (fileName.endsWith(".csv", Qt::CaseInsensitive))
+    {
+        // 导出为 CSV
+        QFile file(fileName);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            QMessageBox::warning(this, "错误", "无法写入文件");
+            return;
+        }
+        QTextStream out(&file);
+        // UTF-8 BOM 以兼容 Excel
+        out.setCodec("UTF-8");
+        out.setGenerateByteOrderMark(true);
+        
+        // 简单的 CSV 转换：每行作为一行
+        QStringList lines = content.split('\n');
+        for(const QString& line : lines) {
+            // CSV 转义：如果有逗号或引号，用双引号包裹，并双写内部引号
+            QString csvLine = line;
+            if (csvLine.contains(',') || csvLine.contains('"') || csvLine.contains('\n')) {
+                csvLine.replace("\"", "\"\"");
+                csvLine = "\"" + csvLine + "\"";
+            }
+            out << csvLine << "\n";
+        }
+        file.close();
+    }
+    else
+    {
+        // 默认文本导出 (txt, md)
+        QFile file(fileName);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            QMessageBox::warning(this, "错误", "无法写入文件");
+            return;
+        }
 
-    QTextStream out(&file);
-    out.setCodec("UTF-8");
-    out << m_resultText->toPlainText();
-    file.close();
+        QTextStream out(&file);
+        out.setCodec("UTF-8");
+        out << content;
+        file.close();
+    }
 
     showStatusMessage("结果已导出到: " + fileName);
 }
