@@ -6,6 +6,8 @@
 #include <QSqlError>
 #include <QSqlRecord>
 #include <QDateTime>
+#include <QCryptographicHash>
+#include <QBuffer>
 
 HistoryManager::HistoryManager(QObject* parent) : QObject(parent) {
     m_historyDir = QDir::currentPath() + "/history";
@@ -57,13 +59,22 @@ QSqlDatabase HistoryManager::getDatabase() {
                 "full_text TEXT, "
                 "model_name TEXT, "
                 "processing_time_ms INTEGER, "
-                "error_message TEXT"
+                "error_message TEXT, "
+                "content_hash TEXT"
                 ")"
             );
             if (!success) {
                 qCritical() << "HistoryManager: Failed to create table:" << query.lastError().text();
             } else {
+                // 检查 content_hash 列是否存在 (用于旧版本升级)
+                if (!db.record("history").contains("content_hash")) {
+                    qDebug() << "HistoryManager: Upgrading database schema (adding content_hash)";
+                    query.exec("ALTER TABLE history ADD COLUMN content_hash TEXT");
+                    query.exec("CREATE INDEX IF NOT EXISTS idx_content_hash ON history(content_hash)");
+                }
+
                 query.exec("CREATE INDEX IF NOT EXISTS idx_timestamp ON history(timestamp DESC)");
+                query.exec("CREATE INDEX IF NOT EXISTS idx_content_hash ON history(content_hash)");
             }
         }
     }
@@ -94,6 +105,7 @@ void HistoryManager::loadHistory() {
             item.result.modelName = query.value("model_name").toString();
             item.result.processingTimeMs = query.value("processing_time_ms").toLongLong();
             item.result.errorMessage = query.value("error_message").toString();
+            item.contentHash = query.value("content_hash").toString();
             
             if (!item.imagePath.isEmpty() && QFile::exists(item.imagePath)) {
                 item.image.load(item.imagePath);
@@ -131,8 +143,8 @@ void HistoryManager::addHistoryItem(const HistoryItem& item) {
         QSqlDatabase db = getDatabase();
         if (db.isOpen()) {
             QSqlQuery query(db);
-            query.prepare("INSERT INTO history (timestamp, image_path, source, success, full_text, model_name, processing_time_ms, error_message) "
-                          "VALUES (:ts, :path, :src, :success, :txt, :model, :time, :err)");
+            query.prepare("INSERT INTO history (timestamp, image_path, source, success, full_text, model_name, processing_time_ms, error_message, content_hash) "
+                          "VALUES (:ts, :path, :src, :success, :txt, :model, :time, :err, :hash)");
             
             query.bindValue(":ts", newItem.timestamp.toMSecsSinceEpoch());
             query.bindValue(":path", newItem.imagePath);
@@ -142,6 +154,7 @@ void HistoryManager::addHistoryItem(const HistoryItem& item) {
             query.bindValue(":model", newItem.result.modelName);
             query.bindValue(":time", newItem.result.processingTimeMs);
             query.bindValue(":err", newItem.result.errorMessage);
+            query.bindValue(":hash", newItem.contentHash);
             
             if (!query.exec()) {
                  qWarning() << "HistoryManager: Insert failed:" << query.lastError().text();
@@ -275,8 +288,8 @@ void HistoryManager::setPersistenceEnabled(bool enabled) {
         
         db.transaction();
         QSqlQuery insertQuery(db);
-        insertQuery.prepare("INSERT INTO history (timestamp, image_path, source, success, full_text, model_name, processing_time_ms, error_message) "
-                      "VALUES (:ts, :path, :src, :success, :txt, :model, :time, :err)");
+        insertQuery.prepare("INSERT INTO history (timestamp, image_path, source, success, full_text, model_name, processing_time_ms, error_message, content_hash) "
+                      "VALUES (:ts, :path, :src, :success, :txt, :model, :time, :err, :hash)");
 
         // 将内存中的历史记录保存到数据库
         for (auto& item : m_history) {
@@ -301,6 +314,7 @@ void HistoryManager::setPersistenceEnabled(bool enabled) {
              insertQuery.bindValue(":model", item.result.modelName);
              insertQuery.bindValue(":time", item.result.processingTimeMs);
              insertQuery.bindValue(":err", item.result.errorMessage);
+             insertQuery.bindValue(":hash", item.contentHash);
              
              if (!insertQuery.exec()) {
                 qWarning() << "HistoryManager: Failed to insert item during migration:" << insertQuery.lastError().text();
@@ -325,4 +339,82 @@ void HistoryManager::setMaxHistory(int max) {
 
 int HistoryManager::getMaxHistory() const {
     return m_maxHistory;
+}
+
+QString HistoryManager::computeContentHash(const QImage& img, const QString& prompt, const QString& model, const QMap<QString, QString>& params) {
+    if (img.isNull()) return QString();
+    
+    QCryptographicHash hasher(QCryptographicHash::Md5);
+    
+    // Hash Image Data
+    QByteArray imgData;
+    QBuffer buffer(&imgData);
+    buffer.open(QIODevice::WriteOnly);
+    // 使用 PNG 格式以确保无损和一致性
+    img.save(&buffer, "PNG"); 
+    hasher.addData(imgData);
+    
+    // Hash Prompt
+    hasher.addData(prompt.toUtf8());
+    
+    // Hash Model
+    hasher.addData(model.toUtf8());
+
+    // Hash Params (QMap 参数按key排序)
+    for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
+        // 跳过 API Key 等敏感信息，避免因更换 Key 导致缓存失效
+        // 但如果用户认为 Key 不同应该对应不同结果，可以移除此过滤
+        if (it.key().compare("api_key", Qt::CaseInsensitive) == 0) continue;
+        if (it.key().compare("secret_key", Qt::CaseInsensitive) == 0) continue;
+        if (it.key().compare("access_token", Qt::CaseInsensitive) == 0) continue;
+        
+        hasher.addData(it.key().toUtf8());
+        hasher.addData(it.value().toUtf8());
+    }
+    
+    return hasher.result().toHex();
+}
+
+HistoryItem HistoryManager::findItemByHash(const QString& hash) {
+    if (hash.isEmpty()) return HistoryItem();
+    
+    // 1. 缓存命中: 在内存中搜索
+    // 优先返回最近的记录 (因为 m_history 是按时间倒序排列的)
+    for (const auto& item : m_history) 
+    {
+        if (item.contentHash == hash && item.result.success) 
+            return item;
+    }
+    
+    // 2. 缓存命中: 在 SQLite 数据库中搜索 (如果启用持久化)
+    if (m_persistenceEnabled) {
+        QSqlDatabase db = getDatabase();
+        if (db.isOpen()) {
+            QSqlQuery query(db);
+            // 查找最近一次成功的记录
+            query.prepare("SELECT * FROM history WHERE content_hash = :hash AND success = 1 ORDER BY timestamp DESC LIMIT 1");
+            query.bindValue(":hash", hash);
+            if (query.exec() && query.next()) {
+                HistoryItem item;
+                item.timestamp = QDateTime::fromMSecsSinceEpoch(query.value("timestamp").toLongLong());
+                item.imagePath = query.value("image_path").toString();
+                item.source = static_cast<SubmitSource>(query.value("source").toInt());
+                item.result.success = true; // We queried for success=1
+                item.result.fullText = query.value("full_text").toString();
+                item.result.modelName = query.value("model_name").toString();
+                item.result.processingTimeMs = query.value("processing_time_ms").toLongLong();
+                item.result.errorMessage = query.value("error_message").toString();
+                item.contentHash = hash;
+                
+                // 加载图片
+                if (!item.imagePath.isEmpty() && QFile::exists(item.imagePath)) {
+                    item.image.load(item.imagePath);
+                }
+                
+                return item;
+            }
+        }
+    }
+    
+    return HistoryItem(); // 未找到
 }

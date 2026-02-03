@@ -1360,7 +1360,33 @@ void MainWindow::dispatchBatchJobs()
         }
 
         QString filePath = m_batchFiles.at(idx);
-        QString contextId = QString("batch:%1").arg(idx);
+        QString hash;
+        if (m_pipeline->currentAdapter()) {
+            const auto& config = m_pipeline->currentAdapter()->config();
+            hash = HistoryManager::computeContentHash(item.image, m_batchPrompt, config.id, config.params);
+            
+            // 缓存检查
+            HistoryItem cached = m_historyManager->findItemByHash(hash);
+            if (cached.result.success) {
+                qDebug() << "Batch Cache Hit! Index:" << idx << "Hash:" << hash;
+                
+                // 更新批量项
+                m_batchItems[idx].result = cached.result;
+                m_batchItems[idx].finished = true;
+                m_batchItems[idx].error.clear();
+                
+                // 添加到历史记录 (保持时间线更新)
+                HistoryItem newItem = cached;
+                newItem.timestamp = QDateTime::currentDateTime();
+                newItem.source = m_batchSource;
+                addHistoryItem(newItem);
+                
+                // 跳过提交，继续下一个
+                continue;
+            }
+        }
+
+        QString contextId = QString("batch:%1|hash:%2").arg(idx).arg(hash);
         m_batchInFlight++;
 
         showStatusMessage(QString("批量处理中 (%1/%2): %3")
@@ -1561,7 +1587,26 @@ void MainWindow::onRecognizeClicked()
     qDebug() << "Model:" << m_pipeline->currentAdapter()->config().displayName;
 
     QString prompt = m_promptEdit->toPlainText().trimmed();
-    m_pipeline->submitImage(imageToSubmit, SubmitSource::Upload, prompt);
+    QString hash;
+    if (m_pipeline->currentAdapter()) {
+        const auto& config = m_pipeline->currentAdapter()->config();
+        hash = HistoryManager::computeContentHash(imageToSubmit, prompt, config.id, config.params);
+        
+        // 缓存检查
+        HistoryItem cached = m_historyManager->findItemByHash(hash);
+        if (cached.result.success) {
+            qDebug() << "Cache Hit! Hash:" << hash;
+            OCRResult result = cached.result;
+            result.timestamp = QDateTime::currentDateTime();
+            result.processingTimeMs = 0; // 标识为缓存结果
+            
+            onRecognitionCompleted(result, imageToSubmit, SubmitSource::Upload, "hash:" + hash);
+            showStatusMessage("命中缓存，直接返回结果");
+            return;
+        }
+    }
+
+    m_pipeline->submitImage(imageToSubmit, SubmitSource::Upload, prompt, "hash:" + hash);
     
     // 重新应用当前主题样式，防止折叠/展开状态下按钮图标错位
     applyTheme(m_isGrayTheme);
@@ -1800,6 +1845,19 @@ void MainWindow::onRecognitionCompleted(const OCRResult &result, const QImage &i
     item.result = result;
     item.source = source;
     item.timestamp = result.timestamp;
+    
+    // 解析 ContextID 获取 Hash 和 BatchIndex
+    int batchIdx = -1;
+    QStringList parts = contextId.split('|');
+    for (const QString& part : parts) {
+        if (part.startsWith("hash:")) {
+            item.contentHash = part.mid(5);
+        } else if (part.startsWith("batch:")) {
+            bool ok = false;
+            batchIdx = part.mid(6).toInt(&ok);
+            if (!ok) batchIdx = -1;
+        }
+    }
 
     addHistoryItem(item);
     updateResultDisplay(item);
@@ -1820,16 +1878,10 @@ void MainWindow::onRecognitionCompleted(const OCRResult &result, const QImage &i
 
     // 批量任务则继续下一张
     if (m_batchRunning) {
-        int idx = -1;
-        if (contextId.startsWith("batch:")) {
-            bool ok = false;
-            idx = contextId.mid(6).toInt(&ok);
-            if (!ok) idx = -1;
-        }
-        if (idx >= 0 && idx < m_batchItems.size()) {
-            m_batchItems[idx].result = result;
-            m_batchItems[idx].finished = true;
-            m_batchItems[idx].error.clear();
+        if (batchIdx >= 0 && batchIdx < m_batchItems.size()) {
+            m_batchItems[batchIdx].result = result;
+            m_batchItems[batchIdx].finished = true;
+            m_batchItems[batchIdx].error.clear();
         }
         m_batchInFlight = qMax(0, m_batchInFlight - 1);
         dispatchBatchJobs();
@@ -1864,17 +1916,22 @@ void MainWindow::onRecognitionFailed(const QString &error, const QImage &image, 
 
     // 批量任务失败后继续下一张
     if (m_batchRunning) {
-        int idx = -1;
-        if (contextId.startsWith("batch:")) {
-            bool ok = false;
-            idx = contextId.mid(6).toInt(&ok);
-            if (!ok) idx = -1;
+        int batchIdx = -1;
+        QStringList parts = contextId.split('|');
+        for (const QString& part : parts) {
+            if (part.startsWith("batch:")) {
+                bool ok = false;
+                batchIdx = part.mid(6).toInt(&ok);
+                if (!ok) batchIdx = -1;
+                break;
+            }
         }
-        if (idx >= 0 && idx < m_batchItems.size()) {
-            m_batchItems[idx].finished = true;
-            m_batchItems[idx].error = error;
-            m_batchItems[idx].result.success = false;
-            m_batchItems[idx].result.errorMessage = error;
+
+        if (batchIdx >= 0 && batchIdx < m_batchItems.size()) {
+            m_batchItems[batchIdx].finished = true;
+            m_batchItems[batchIdx].error = error;
+            m_batchItems[batchIdx].result.success = false;
+            m_batchItems[batchIdx].result.errorMessage = error;
         }
         m_batchInFlight = qMax(0, m_batchInFlight - 1);
         dispatchBatchJobs();

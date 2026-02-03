@@ -2,6 +2,7 @@
 #include <QObject>
 #include <QVector>
 #include <QSqlDatabase>
+#include <QMap>
 #include "../core/HistoryItem.h"
 
 // 历史记录管理器
@@ -34,6 +35,12 @@ public:
     // 设置最大历史记录数量
     void setMaxHistory(int max);
     int getMaxHistory() const;
+
+    // 计算内容哈希
+    static QString computeContentHash(const QImage& img, const QString& prompt, const QString& model, const QMap<QString, QString>& params = QMap<QString, QString>());
+
+    // 根据哈希查找历史记录
+    HistoryItem findItemByHash(const QString& hash);
 
 signals:
     void historyChanged();
